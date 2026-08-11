@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: nawill-pay
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+  datasource:
+    url: ${NAWILL_DB_URL}
+    username: ${NAWILL_DB_USERNAME}
+    password: ${NAWILL_DB_PASSWORD}
+  data:
+    redis:
+      host: ${NAWILL_REDIS_HOST}
+      port: ${NAWILL_REDIS_PORT}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+nawill:
+  auth:
+    jwt:
+      secret: ${AUTH_JWT_SECRET}
+      expiry-minutes: ${AUTH_JWT_EXPIRY_MINUTES:15}
+    superadmin:
+      email: ${AUTH_SUPERADMIN_EMAIL}
+      password: ${AUTH_SUPERADMIN_PASSWORD}

@@ -1,0 +1,30 @@
+# Local development against the docker-compose.yml stack (postgres, redis).
+# Safe non-secret defaults only - never use these values in staging/prod.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:15432/nawill_pay
+    username: nawill
+    password: nawill
+  data:
+    redis:
+      host: localhost
+      port: 16379
+  jpa:
+    show-sql: true
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+nawill:
+  auth:
+    jwt:
+      secret: ${AUTH_JWT_SECRET:dev-only-jwt-signing-secret-change-me-32-bytes-min}
+    superadmin:
+      email: ${AUTH_SUPERADMIN_EMAIL:superadmin@nawill.com.ng}
+      password: ${AUTH_SUPERADMIN_PASSWORD:ChangeMe123!}
+
+logging:
+  level:
+    ng.com.nawill.pay: DEBUG

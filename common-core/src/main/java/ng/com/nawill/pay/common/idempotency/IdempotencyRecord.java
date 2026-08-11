@@ -2,7 +2,6 @@ package ng.com.nawill.pay.common.idempotency;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import ng.com.nawill.pay.common.entity.BaseEntity;
@@ -29,8 +28,9 @@ public class IdempotencyRecord extends BaseEntity {
     @Column(name = "response_status")
     private Integer responseStatus;
 
-    @Lob
-    @Column(name = "response_body")
+    // Deliberately not @Lob: Hibernate maps @Lob String to CLOB/oid on
+    // Postgres, but the migration (V0014) uses a plain TEXT column.
+    @Column(name = "response_body", columnDefinition = "TEXT")
     private String responseBody;
 
     @Column(name = "completed_at")

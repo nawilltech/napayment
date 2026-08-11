@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--
+      JSON structured logging (doc 3 §7). Every line carries: timestamp,
+      level, requestId + userId (via MDC - see common-core's
+      RequestIdFilter/UserContextMdcFilter), module (derived from the
+      logger's package by ModuleJsonProvider), and message.
+      logback-spring.xml (not logback.xml) so Spring's Environment -
+      including logging.level.* from application-{profile}.yml - is
+      available by the time this config is processed.
+    -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp/>
+                <logLevel/>
+                <loggerName/>
+                <threadName/>
+                <message/>
+                <mdc/>
+                <arguments/>
+                <stackTrace/>
+                <provider class="ng.com.nawill.pay.common.logging.ModuleJsonProvider"/>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>

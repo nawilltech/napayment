@@ -1,0 +1,14 @@
+# Mirrors production topology at lower capacity; sandbox/test credentials.
+# No defaults here - every value must come from the environment (doc 3 §5.1).
+spring:
+  jpa:
+    show-sql: false
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    ng.com.nawill.pay: INFO

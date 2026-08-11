@@ -1,0 +1,15 @@
+# Live credentials, real money movement. No defaults here - every value must
+# come from the environment, injected via a secrets manager at deploy time
+# (doc 3 §2.3), never committed.
+spring:
+  jpa:
+    show-sql: false
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    ng.com.nawill.pay: INFO
