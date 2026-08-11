@@ -48,11 +48,20 @@ every other module.
    `spring.data.redis.port` in `app/src/main/resources/application-dev.yml`
    together.
 
-2. Run the app against the `dev` profile:
+2. Build once so the sibling modules are in your local `~/.m2` repo, then run
+   the app against the `dev` profile:
 
    ```bash
-   ./mvnw -pl app -am spring-boot:run -Dspring-boot.run.profiles=dev
+   ./mvnw install -DskipTests
+   ./mvnw -f app/pom.xml spring-boot:run -Dspring-boot.run.profiles=dev
    ```
+
+   Use `-f app/pom.xml`, not `-pl app -am spring-boot:run` — `spring-boot:run`
+   isn't bound to a lifecycle phase, so with `-pl`/`-am` Maven executes it
+   against every project in the reactor build order (root aggregator POM
+   first), and fails immediately trying to run the parent `pom` as a Spring
+   Boot app ("Unable to find a suitable main class") before ever reaching
+   `app`. `-f app/pom.xml` targets `app` directly instead.
 
    The `dev` profile ships with safe non-secret defaults (matching
    `docker-compose.yml`) for the datasource, Redis, JWT signing secret, and
