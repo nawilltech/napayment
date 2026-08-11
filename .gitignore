@@ -1,0 +1,22 @@
+target/
+*.class
+*.log
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+
+# env
+.env
+.env.local
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
