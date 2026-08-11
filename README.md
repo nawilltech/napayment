@@ -111,6 +111,32 @@ rows; a USER-role token is rejected (403) from an admin-only endpoint; and a
 failed-auth attempt's `requestId` is verified present in the structured log
 output. Test classes live in `app/src/test/java/.../app/it/`.
 
+## Git workflow & branch protection
+
+`feature/<ticket>-<slug>` / `fix/<ticket>-<slug>` → PR into `dev` → PR `dev` →
+`main` (doc 4 §B.1 naming, with a `dev` integration branch in front of
+`main`). `dev` is the repository's default branch, so new PRs target it
+unless you explicitly point at `main`.
+
+Both `dev` and `main` are protected on GitHub:
+
+- **No direct pushes** — enforced for admins too; every change goes through a PR.
+- **Required status check**: `verify` ([`.github/workflows/ci.yml`](.github/workflows/ci.yml),
+  which runs `./mvnw clean verify` — compile, unit tests, and the
+  Testcontainers integration suite) must pass, and the branch must be up to
+  date with its base, before a PR can merge.
+- **No force-pushes, no branch deletion.**
+- **0 required approving reviews** — this is currently a solo repo, so
+  requiring an external approval would lock out merging your own PRs. Bump
+  `required_approving_review_count` on both branches once there's a second
+  collaborator:
+  ```bash
+  gh api -X PUT repos/ushashir/napayment/branches/<branch>/protection/required_pull_request_reviews \
+    -f required_approving_review_count=1
+  ```
+
+Feature/fix branches are auto-deleted on merge (`delete_branch_on_merge`).
+
 ## Environment variables
 
 None of these are required for `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`
