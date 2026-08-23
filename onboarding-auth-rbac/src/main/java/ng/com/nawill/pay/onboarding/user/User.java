@@ -93,6 +93,10 @@ public class User extends BaseEntity {
         return passwordHash;
     }
 
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public boolean isVerified() {
         return verified;
     }

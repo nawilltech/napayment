@@ -24,6 +24,10 @@ nawill:
     superadmin:
       email: ${AUTH_SUPERADMIN_EMAIL:superadmin@nawill.com.ng}
       password: ${AUTH_SUPERADMIN_PASSWORD:ChangeMe123!}
+  security:
+    # Dev-only AES-256 key (base64) - never use this in staging/prod; there
+    # it must come from a real secret, same posture as AUTH_JWT_SECRET.
+    encryption-key: ${NAWILL_ENCRYPTION_KEY:XLIbp3fqy/rVmRz+R6U8LIXfN1kpEJ4rwcKkH4yDA8U=}
 
 logging:
   level:

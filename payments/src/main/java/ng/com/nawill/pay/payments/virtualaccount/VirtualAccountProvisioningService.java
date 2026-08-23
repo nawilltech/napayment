@@ -1,7 +1,7 @@
 package ng.com.nawill.pay.payments.virtualaccount;
 
-import java.security.SecureRandom;
 import java.util.UUID;
+import ng.com.nawill.pay.payments.util.AccountNumberGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,24 +22,26 @@ public class VirtualAccountProvisioningService {
     private static final int MAX_GENERATION_ATTEMPTS = 5;
 
     private final VirtualAccountRepository virtualAccountRepository;
-    private final SecureRandom random = new SecureRandom();
+    private final AccountNumberGenerator accountNumberGenerator;
 
-    public VirtualAccountProvisioningService(VirtualAccountRepository virtualAccountRepository) {
+    public VirtualAccountProvisioningService(VirtualAccountRepository virtualAccountRepository,
+                                              AccountNumberGenerator accountNumberGenerator) {
         this.virtualAccountRepository = virtualAccountRepository;
+        this.accountNumberGenerator = accountNumberGenerator;
     }
 
     @Transactional
     public VirtualAccountResponse provisionForUser(UUID userId) {
-        VirtualAccount account = new VirtualAccount(generateUniqueAccountNumber(), userId, null, DEFAULT_CURRENCY);
-        VirtualAccount saved = save(account);
+        String accountNumber = accountNumberGenerator.generateUnique(virtualAccountRepository::existsByAccountNumber);
+        VirtualAccount saved = save(new VirtualAccount(accountNumber, userId, null, DEFAULT_CURRENCY));
         log.info("virtual account provisioned for user");
         return VirtualAccountResponse.from(saved);
     }
 
     @Transactional
     public VirtualAccountResponse provisionForBusiness(UUID businessId) {
-        VirtualAccount account = new VirtualAccount(generateUniqueAccountNumber(), null, businessId, DEFAULT_CURRENCY);
-        VirtualAccount saved = save(account);
+        String accountNumber = accountNumberGenerator.generateUnique(virtualAccountRepository::existsByAccountNumber);
+        VirtualAccount saved = save(new VirtualAccount(accountNumber, null, businessId, DEFAULT_CURRENCY));
         log.info("virtual account provisioned for business");
         return VirtualAccountResponse.from(saved);
     }
@@ -52,17 +54,9 @@ public class VirtualAccountProvisioningService {
                 if (attempt == MAX_GENERATION_ATTEMPTS) {
                     throw e;
                 }
-                account.reassignAccountNumber(generateUniqueAccountNumber());
+                account.reassignAccountNumber(accountNumberGenerator.generateUnique(virtualAccountRepository::existsByAccountNumber));
             }
         }
         throw new IllegalStateException("unreachable");
-    }
-
-    private String generateUniqueAccountNumber() {
-        String candidate;
-        do {
-            candidate = "9" + String.format("%09d", random.nextInt(1_000_000_000));
-        } while (virtualAccountRepository.existsByAccountNumber(candidate));
-        return candidate;
     }
 }

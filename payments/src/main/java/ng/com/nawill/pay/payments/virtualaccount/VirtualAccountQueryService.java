@@ -1,6 +1,7 @@
 package ng.com.nawill.pay.payments.virtualaccount;
 
 import java.util.List;
+import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import org.springframework.stereotype.Service;
@@ -25,5 +26,18 @@ public class VirtualAccountQueryService {
         return currentUser.hasBusinessScope()
                 ? virtualAccountRepository.findByBusinessId(currentUser.businessId())
                 : virtualAccountRepository.findByUserId(currentUser.userId());
+    }
+
+    /**
+     * Single source of truth for "resolve the caller's one virtual account"
+     * - every feature built on top of an existing virtual account (settlement
+     * accounts, payment links, dynamic accounts, ...) uses this instead of
+     * re-deriving the same business/user lookup + not-found handling. The
+     * system provisions exactly one virtual account per user/business today
+     * (FR-1); this is the one place that assumption lives.
+     */
+    public VirtualAccount requireSoleVirtualAccountForCaller() {
+        return listForCaller().stream().findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("No virtual account found for the caller"));
     }
 }

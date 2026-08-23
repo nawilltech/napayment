@@ -29,7 +29,7 @@ class TransactionIdempotencyIT extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        userToken = signupAndGetToken("Katherine", "Johnson", "SecurePass123");
+        userToken = signupAndGetToken("Katherine", "Johnson", "SecurePass123!");
 
         ResponseEntity<List> accounts = restTemplate.exchange(
                 url("/api/v1/virtual-accounts"), HttpMethod.GET, new HttpEntity<>(authHeaders(userToken)), List.class);

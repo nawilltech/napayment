@@ -34,6 +34,9 @@ public class VirtualAccount extends BaseEntity {
     @Column(name = "meta")
     private String meta;
 
+    @Column(name = "auto_settle", nullable = false)
+    private boolean autoSettle = false;
+
     protected VirtualAccount() {
     }
 
@@ -86,5 +89,13 @@ public class VirtualAccount extends BaseEntity {
 
     public boolean isOwnedByBusiness(UUID candidateBusinessId) {
         return businessId != null && businessId.equals(candidateBusinessId);
+    }
+
+    public boolean isAutoSettle() {
+        return autoSettle;
+    }
+
+    public void setAutoSettle(boolean autoSettle) {
+        this.autoSettle = autoSettle;
     }
 }

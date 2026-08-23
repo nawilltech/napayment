@@ -20,3 +20,6 @@ target/
 
 # Maven
 .mvn/wrapper/maven-wrapper.jar
+
+# Local Redis snapshot (written by a locally-run redis-server in the repo root)
+*.rdb
