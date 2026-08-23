@@ -19,7 +19,7 @@ class RbacIT extends AbstractIntegrationTest {
 
     @Test
     void userRoleTokenIsRejectedFromAdminOnlyEndpoint() {
-        String userToken = signupAndGetToken("Rosalind", "Franklin", "SecurePass123");
+        String userToken = signupAndGetToken("Rosalind", "Franklin", "SecurePass123!");
 
         Map<String, Object> processorRequest = Map.of("name", "Interswitch-" + UUID.randomUUID());
         ResponseEntity<Map> response = restTemplate.exchange(
@@ -32,7 +32,7 @@ class RbacIT extends AbstractIntegrationTest {
 
     @Test
     void requestIdIsPresentInStructuredLogsForAFailedAuthAttempt(LogCapture logCapture) {
-        Map<String, Object> signupRequest = uniqueSignupPayload("Marie", "Curie", "SecurePass123");
+        Map<String, Object> signupRequest = uniqueSignupPayload("Marie", "Curie", "SecurePass123!");
         restTemplate.postForEntity(url("/api/v1/auth/signup"), signupRequest, Map.class);
 
         Map<String, Object> badLogin = Map.of("email", signupRequest.get("email"), "password", "TotallyWrongPassword");

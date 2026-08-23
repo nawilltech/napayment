@@ -12,7 +12,7 @@ class AuthFlowIT extends AbstractIntegrationTest {
 
     @Test
     void loginIssuesJwtAndProtectedEndpointRejectsWithoutIt() {
-        Map<String, Object> signupRequest = uniqueSignupPayload("Grace", "Hopper", "SecurePass123");
+        Map<String, Object> signupRequest = uniqueSignupPayload("Grace", "Hopper", "SecurePass123!");
         restTemplate.postForEntity(url("/api/v1/auth/signup"), signupRequest, Map.class);
 
         Map<String, Object> loginRequest = Map.of(
@@ -32,7 +32,7 @@ class AuthFlowIT extends AbstractIntegrationTest {
 
     @Test
     void loginWithWrongPasswordIsRejected() {
-        Map<String, Object> signupRequest = uniqueSignupPayload("Grace", "Hopper", "SecurePass123");
+        Map<String, Object> signupRequest = uniqueSignupPayload("Grace", "Hopper", "SecurePass123!");
         restTemplate.postForEntity(url("/api/v1/auth/signup"), signupRequest, Map.class);
 
         Map<String, Object> badLogin = Map.of("email", signupRequest.get("email"), "password", "WrongPassword");

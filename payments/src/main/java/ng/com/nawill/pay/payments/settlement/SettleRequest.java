@@ -1,0 +1,8 @@
+package ng.com.nawill.pay.payments.settlement;
+
+import jakarta.validation.constraints.Positive;
+import java.math.BigInteger;
+
+/** {@code amount} is optional - omitted means "settle the full available balance". */
+public record SettleRequest(@Positive BigInteger amount) {
+}

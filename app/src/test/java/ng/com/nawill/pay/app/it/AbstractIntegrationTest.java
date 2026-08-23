@@ -101,6 +101,30 @@ public abstract class AbstractIntegrationTest {
         return (String) restTemplate.postForEntity(url("/api/v1/auth/signup"), body, Map.class).getBody().get("accessToken");
     }
 
+    /** Business signup - most new v0.1.x features (settlements, API keys, payment links, ...) are business-scoped only. */
+    protected static Map<String, Object> uniqueBusinessSignupPayload(String firstName, String lastName, String password) {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        return Map.of(
+                "firstName", firstName,
+                "lastName", lastName,
+                "email", firstName.toLowerCase() + "-biz-" + suffix + "@example.com",
+                "phoneNo", String.format("0802%06d", Math.abs(suffix.hashCode()) % 1_000_000),
+                "password", password,
+                "businessName", firstName + " Ventures " + suffix,
+                "cacNumber", "RC" + suffix
+        );
+    }
+
+    /** Full signup response (accessToken, userId, businessId) for tests that need more than just the token. */
+    protected Map<String, Object> businessSignup(String firstName, String lastName, String password) {
+        Map<String, Object> body = uniqueBusinessSignupPayload(firstName, lastName, password);
+        return restTemplate.postForEntity(url("/api/v1/auth/signup"), body, Map.class).getBody();
+    }
+
+    protected String businessSignupAndGetToken(String firstName, String lastName, String password) {
+        return (String) businessSignup(firstName, lastName, password).get("accessToken");
+    }
+
     protected String loginAndGetToken(String email, String password) {
         Map<String, Object> body = Map.of("email", email, "password", password);
         return (String) restTemplate.postForEntity(url("/api/v1/auth/login"), body, Map.class).getBody().get("accessToken");

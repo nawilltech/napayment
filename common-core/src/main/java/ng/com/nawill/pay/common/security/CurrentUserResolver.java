@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import ng.com.nawill.pay.common.exception.BadRequestException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,6 +26,9 @@ public class CurrentUserResolver {
 
     public Optional<CurrentUser> resolve() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof ApiKeyAuthenticationToken apiKeyAuth) {
+            return Optional.of((CurrentUser) apiKeyAuth.getPrincipal());
+        }
         if (!(authentication instanceof JwtAuthenticationToken jwtAuth)) {
             return Optional.empty();
         }
@@ -44,5 +48,19 @@ public class CurrentUserResolver {
     public CurrentUser requireCurrentUser() {
         return resolve().orElseThrow(() ->
                 new IllegalStateException("No authenticated user in the current security context"));
+    }
+
+    /**
+     * Single source of truth for "this operation is a business concept, not
+     * an individual-user one" (settlement accounts, API keys, payment links,
+     * dynamic accounts, ...) - every such service calls this instead of
+     * each re-implementing its own business-scope guard.
+     */
+    public CurrentUser requireBusinessScope() {
+        CurrentUser currentUser = requireCurrentUser();
+        if (!currentUser.hasBusinessScope()) {
+            throw new BadRequestException("This operation is only available to business accounts");
+        }
+        return currentUser;
     }
 }

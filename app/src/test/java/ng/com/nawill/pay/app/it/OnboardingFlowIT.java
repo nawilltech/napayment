@@ -16,7 +16,7 @@ class OnboardingFlowIT extends AbstractIntegrationTest {
 
     @Test
     void signupAutoProvisionsVirtualAccount() {
-        Map<String, Object> signupRequest = uniqueSignupPayload("Ada", "Lovelace", "SecurePass123");
+        Map<String, Object> signupRequest = uniqueSignupPayload("Ada", "Lovelace", "SecurePass123!");
 
         ResponseEntity<Map> signupResponse = restTemplate.postForEntity(url("/api/v1/auth/signup"), signupRequest, Map.class);
         assertThat(signupResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);

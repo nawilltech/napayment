@@ -1,11 +1,16 @@
 # Nawill Pay — Backend (MVP v0.1)
 
 Java 17 / Spring Boot 3 modular-monolith API for Nawill Pay, a Nigerian payment
-collection and processing platform. This is the v0.1 MVP scope only: onboarding +
-auth + RBAC, virtual account provisioning, a single (sandbox) payment processor
-integration, transaction creation with idempotency, and admin RBAC. See
-[`docs/`](docs/) for the full requirements, architecture, security, and
-naming-convention specs this build implements.
+collection and processing platform: onboarding + auth + RBAC, virtual account
+provisioning, settlement accounts with percentage-based splits, a pooled
+collection account, business API keys (HMAC-signed third-party collect/
+withdraw), payment links, dynamic/temporary virtual accounts, a sandboxed
+payment processor integration, and idempotency-protected transactions
+throughout. See [`docs/nawill-pay.md`](docs/nawill-pay.md) — a single
+consolidated document (requirements, technical architecture & schema,
+security/idempotency/deployment deep-dive, and the contribution/naming-
+convention guide, each as its own chapter) — for the full spec this build
+implements.
 
 ## Module layout
 
@@ -56,6 +61,14 @@ every other module.
    ./mvnw -f app/pom.xml spring-boot:run -Dspring-boot.run.profiles=dev
    ```
 
+   `spring-boot:run` runs in the foreground; stop the server with `Ctrl+C` in
+   that terminal. If you lost track of the terminal (e.g. it was started in
+   the background), kill whatever's bound to port `8080` instead:
+
+   ```bash
+   lsof -ti:8080 | xargs kill
+   ```
+
    Use `-f app/pom.xml`, not `-pl app -am spring-boot:run` — `spring-boot:run`
    isn't bound to a lifecycle phase, so with `-pl`/`-am` Maven executes it
    against every project in the reactor build order (root aggregator POM
@@ -83,12 +96,12 @@ every other module.
 # Sign up (auto-provisions a virtual account, FR-1)
 curl -X POST http://localhost:8080/api/v1/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"firstName":"Ada","lastName":"Lovelace","email":"ada@example.com","phoneNo":"08011112222","password":"SecurePass123"}'
+  -d '{"firstName":"Ada","lastName":"Lovelace","email":"ada@example.com","phoneNo":"08011112222","password":"SecurePass123!"}'
 
 # Log in
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"ada@example.com","password":"SecurePass123"}'
+  -d '{"email":"ada@example.com","password":"SecurePass123!"}'
 
 # Create a transaction (requires Idempotency-Key; token from signup/login)
 curl -X POST http://localhost:8080/api/v1/transactions \

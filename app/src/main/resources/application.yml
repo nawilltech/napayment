@@ -45,3 +45,5 @@ nawill:
     superadmin:
       email: ${AUTH_SUPERADMIN_EMAIL}
       password: ${AUTH_SUPERADMIN_PASSWORD}
+  security:
+    encryption-key: ${NAWILL_ENCRYPTION_KEY}

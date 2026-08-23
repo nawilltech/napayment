@@ -2,7 +2,7 @@ package ng.com.nawill.pay.onboarding.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import ng.com.nawill.pay.common.validation.StrongPassword;
 
 public record SignupRequest(
         @NotBlank String firstName,
@@ -10,7 +10,7 @@ public record SignupRequest(
         @NotBlank String lastName,
         @NotBlank @Email String email,
         @NotBlank String phoneNo,
-        @NotBlank @Size(min = 8) String password,
+        @NotBlank @StrongPassword String password,
         String businessName,
         String cacNumber
 ) {

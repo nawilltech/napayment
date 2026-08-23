@@ -1,7 +1,13 @@
 package ng.com.nawill.pay.onboarding.auth;
 
+import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
+import ng.com.nawill.pay.common.exception.AccountLockedException;
 import ng.com.nawill.pay.common.exception.BadRequestException;
+import ng.com.nawill.pay.common.exception.UnauthorizedException;
+import ng.com.nawill.pay.common.security.CurrentUser;
+import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.business.Business;
 import ng.com.nawill.pay.onboarding.business.BusinessRepository;
 import ng.com.nawill.pay.onboarding.rbac.PermissionResolutionService;
@@ -16,7 +22,6 @@ import ng.com.nawill.pay.onboarding.user.UserType;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountProvisioningService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,12 +47,17 @@ public class AuthService {
     private final VirtualAccountProvisioningService virtualAccountProvisioningService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
+    private final PasswordResetService passwordResetService;
+    private final CurrentUserResolver currentUserResolver;
 
     public AuthService(UserRepository userRepository, BusinessRepository businessRepository,
                         RoleRepository roleRepository, UserRoleRepository userRoleRepository,
                         PermissionResolutionService permissionResolutionService,
                         VirtualAccountProvisioningService virtualAccountProvisioningService,
-                        PasswordEncoder passwordEncoder, JwtService jwtService) {
+                        PasswordEncoder passwordEncoder, JwtService jwtService,
+                        LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
+                        CurrentUserResolver currentUserResolver) {
         this.userRepository = userRepository;
         this.businessRepository = businessRepository;
         this.roleRepository = roleRepository;
@@ -56,6 +66,9 @@ public class AuthService {
         this.virtualAccountProvisioningService = virtualAccountProvisioningService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
+        this.passwordResetService = passwordResetService;
+        this.currentUserResolver = currentUserResolver;
     }
 
     public AuthResponse signup(SignupRequest request) {
@@ -89,14 +102,74 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            log.warn("failed login attempt");
-            throw new BadCredentialsException("Invalid email or password");
+        String email = request.email();
+
+        Optional<Duration> locked = loginAttemptService.lockedRemaining(email);
+        if (locked.isPresent()) {
+            throw new AccountLockedException(lockedMessage(locked.get()));
         }
+
+        Optional<User> maybeUser = userRepository.findByEmail(email);
+        boolean credentialsValid = maybeUser.isPresent()
+                && passwordEncoder.matches(request.password(), maybeUser.get().getPasswordHash());
+
+        if (!credentialsValid) {
+            int attempts = loginAttemptService.recordFailure(email);
+            if (attempts >= loginAttemptService.maxAttempts()) {
+                loginAttemptService.lock(email);
+                log.warn("account locked after {} failed login attempts: email={}", attempts, email);
+                throw new AccountLockedException(lockedMessage(loginAttemptService.lockoutDuration()));
+            }
+            log.warn("failed login attempt {}/{}", attempts, loginAttemptService.maxAttempts());
+            throw new UnauthorizedException("INVALID_CREDENTIALS",
+                    "Invalid email or password (attempt " + attempts + "/" + loginAttemptService.maxAttempts() + ")");
+        }
+
+        loginAttemptService.clear(email);
+        User user = maybeUser.get();
         log.info("user logged in: userId={}", user.getId());
         return issueTokenFor(user);
+    }
+
+    public ForgotPasswordResponse forgotPassword(String email) {
+        Optional<User> user = userRepository.findByEmail(email);
+        String token = null;
+        if (user.isPresent()) {
+            token = passwordResetService.issueToken(email);
+            log.info("password reset token issued: userId={}", user.get().getId());
+        }
+        return new ForgotPasswordResponse(
+                "If an account with that email exists, a password reset code has been issued.", token);
+    }
+
+    public void resetPassword(ResetPasswordRequest request) {
+        boolean valid = passwordResetService.validateAndConsume(request.email(), request.token());
+        if (!valid) {
+            throw new BadRequestException("INVALID_RESET_TOKEN", "The reset code is invalid or has expired");
+        }
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BadRequestException("INVALID_RESET_TOKEN", "The reset code is invalid or has expired"));
+        user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        loginAttemptService.clear(request.email());
+        log.info("password reset: userId={}", user.getId());
+    }
+
+    public void changePassword(ChangePasswordRequest request) {
+        CurrentUser currentUser = currentUserResolver.requireCurrentUser();
+        User user = userRepository.findById(currentUser.userId())
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + currentUser.userId()));
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new UnauthorizedException("INVALID_CREDENTIALS", "Current password is incorrect");
+        }
+        user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        log.info("password changed: userId={}", user.getId());
+    }
+
+    private String lockedMessage(Duration remaining) {
+        long minutes = Math.max(1, remaining.toMinutes());
+        return "Account locked due to too many failed login attempts. Try again in " + minutes + " minute(s).";
     }
 
     private void assignDefaultRole(User user, String roleName) {
