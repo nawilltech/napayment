@@ -53,6 +53,16 @@ every other module.
    `spring.data.redis.port` in `app/src/main/resources/application-dev.yml`
    together.
 
+   Prefer running Postgres/Redis natively (e.g. via `brew services`) instead
+   of Docker? The app auto-loads a `.env` file from the repo root at startup
+   (via `spring-dotenv`), so you can put your local `NAWILL_DB_URL` etc.
+   there instead of exporting them. Since native services aren't gated by a
+   `docker compose up --wait`-style healthcheck, run
+   `./scripts/wait-for-local-services.sh` first — it blocks until Postgres
+   and Redis (read from `.env`, defaulting to `localhost:5432`/`:6379`)
+   accept connections, and tells you what to run if they're not up (e.g.
+   right after your machine wakes from sleep).
+
 2. Build once so the sibling modules are in your local `~/.m2` repo, then run
    the app against the `dev` profile:
 
