@@ -35,14 +35,22 @@ public class AdminDivision extends BaseEntity {
     @JoinColumn(name = "parent_id")
     private AdminDivision parent;
 
+    @Column(name = "capital", length = 128)
+    private String capital;
+
     protected AdminDivision() {
     }
 
     public AdminDivision(Country country, String name, Integer level, AdminDivision parent) {
+        this(country, name, level, parent, null);
+    }
+
+    public AdminDivision(Country country, String name, Integer level, AdminDivision parent, String capital) {
         this.country = country;
         this.name = name;
         this.level = level;
         this.parent = parent;
+        this.capital = capital;
     }
 
     public Country getCountry() {
@@ -59,5 +67,9 @@ public class AdminDivision extends BaseEntity {
 
     public AdminDivision getParent() {
         return parent;
+    }
+
+    public String getCapital() {
+        return capital;
     }
 }
