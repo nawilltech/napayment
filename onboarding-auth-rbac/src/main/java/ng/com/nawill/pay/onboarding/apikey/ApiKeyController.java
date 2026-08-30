@@ -1,7 +1,9 @@
 package ng.com.nawill.pay.onboarding.apikey;
 
 import jakarta.validation.Valid;
-import java.util.List;
+import ng.com.nawill.pay.common.web.PageDefaults;
+import ng.com.nawill.pay.common.web.PageResponse;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,8 +39,9 @@ public class ApiKeyController {
 
     @GetMapping
     @PreAuthorize("@auth.can('apikeys:manage')")
-    public List<ApiKeyResponse> list() {
-        return apiKeyService.list();
+    public PageResponse<ApiKeyResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                              @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return apiKeyService.list(PageRequest.of(page, size));
     }
 
     @PostMapping("/ip-whitelist")
@@ -50,8 +53,9 @@ public class ApiKeyController {
 
     @GetMapping("/ip-whitelist")
     @PreAuthorize("@auth.can('apikeys:manage')")
-    public List<String> listIpWhitelist() {
-        return apiKeyService.listWhitelist();
+    public PageResponse<String> listIpWhitelist(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                                 @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return apiKeyService.listWhitelist(PageRequest.of(page, size));
     }
 
     @DeleteMapping("/ip-whitelist")

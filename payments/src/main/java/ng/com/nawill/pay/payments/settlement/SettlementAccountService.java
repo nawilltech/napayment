@@ -12,6 +12,8 @@ import ng.com.nawill.pay.payments.bankaccount.BankAccountRepository;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountQueryService;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,10 +70,10 @@ public class SettlementAccountService {
     }
 
     @Transactional(readOnly = true)
-    public List<SettlementAccount> listForCallerVirtualAccount() {
+    public Page<SettlementAccount> listForCallerVirtualAccount(Pageable pageable) {
         currentUserResolver.requireBusinessScope();
         return settlementAccountRepository.findByVirtualAccountId(
-                virtualAccountQueryService.requireSoleVirtualAccountForCaller().getId());
+                virtualAccountQueryService.requireSoleVirtualAccountForCaller().getId(), pageable);
     }
 
     public void toggleAutoSettle(AutoSettleToggleRequest request) {

@@ -5,6 +5,8 @@ import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,12 +54,14 @@ public class RoleService {
     }
 
     @Transactional(readOnly = true)
-    public List<Role> listForCallerBusiness() {
+    public Page<Role> listForCallerBusiness(String term, Pageable pageable) {
         var currentUser = currentUserResolver.requireCurrentUser();
         if (!currentUser.hasBusinessScope()) {
             throw new BadRequestException("Only a business-affiliated account has scoped roles");
         }
-        return roleRepository.findByBusinessId(currentUser.businessId());
+        return (term == null || term.isBlank())
+                ? roleRepository.findByBusinessId(currentUser.businessId(), pageable)
+                : roleRepository.findByBusinessIdAndNameContainingIgnoreCase(currentUser.businessId(), term.trim(), pageable);
     }
 
     @Transactional(readOnly = true)

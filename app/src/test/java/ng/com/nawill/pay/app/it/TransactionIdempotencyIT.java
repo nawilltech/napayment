@@ -31,9 +31,8 @@ class TransactionIdempotencyIT extends AbstractIntegrationTest {
     void setUp() {
         userToken = signupAndGetToken("Katherine", "Johnson", "SecurePass123!");
 
-        ResponseEntity<List> accounts = restTemplate.exchange(
-                url("/api/v1/virtual-accounts"), HttpMethod.GET, new HttpEntity<>(authHeaders(userToken)), List.class);
-        virtualAccountId = (String) ((Map<String, Object>) accounts.getBody().get(0)).get("id");
+        List<Map<String, Object>> accounts = getPagedContent("/api/v1/virtual-accounts", authHeaders(userToken));
+        virtualAccountId = (String) accounts.get(0).get("id");
 
         String adminToken = superAdminToken();
         Map<String, Object> processorRequest = Map.of("name", "Paystack-" + UUID.randomUUID());

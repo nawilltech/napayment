@@ -3,11 +3,13 @@ package ng.com.nawill.pay.payments.dynamicaccount;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.List;
 import ng.com.nawill.pay.common.idempotency.Idempotent;
 import ng.com.nawill.pay.common.idempotency.IdempotencyConstants;
+import ng.com.nawill.pay.common.web.PageDefaults;
+import ng.com.nawill.pay.common.web.PageResponse;
 import ng.com.nawill.pay.payments.transaction.Transaction;
 import ng.com.nawill.pay.payments.transaction.TransactionResponse;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,9 +40,10 @@ public class DynamicVirtualAccountController {
 
     @GetMapping
     @PreAuthorize("@auth.can('temporaryaccounts:manage')")
-    public List<DynamicVirtualAccountResponse> list() {
-        return dynamicVirtualAccountService.listForCallerBusiness().stream()
-                .map(DynamicVirtualAccountResponse::from).toList();
+    public PageResponse<DynamicVirtualAccountResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                                              @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return PageResponse.from(dynamicVirtualAccountService.listForCallerBusiness(PageRequest.of(page, size))
+                .map(DynamicVirtualAccountResponse::from));
     }
 
     /**

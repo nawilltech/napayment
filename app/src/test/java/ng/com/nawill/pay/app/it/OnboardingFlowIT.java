@@ -25,12 +25,10 @@ class OnboardingFlowIT extends AbstractIntegrationTest {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
-        ResponseEntity<List> virtualAccounts = restTemplate.exchange(
-                url("/api/v1/virtual-accounts"), HttpMethod.GET, new HttpEntity<>(headers), List.class);
+        List<Map<String, Object>> virtualAccounts = getPagedContent("/api/v1/virtual-accounts", headers);
 
-        assertThat(virtualAccounts.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(virtualAccounts.getBody()).hasSize(1);
-        Map<String, Object> account = (Map<String, Object>) virtualAccounts.getBody().get(0);
+        assertThat(virtualAccounts).hasSize(1);
+        Map<String, Object> account = virtualAccounts.get(0);
         assertThat(account.get("accountNumber")).isNotNull();
         assertThat(account.get("currency")).isEqualTo("NGN");
         assertThat(account.get("balance")).isEqualTo(0);

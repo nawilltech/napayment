@@ -4,7 +4,6 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.BadRequestException;
@@ -21,6 +20,8 @@ import ng.com.nawill.pay.payments.transaction.TransactionType;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountQueryService;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,9 +70,9 @@ public class PaymentLinkService {
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentLink> listForCallerBusiness() {
+    public Page<PaymentLink> listForCallerBusiness(Pageable pageable) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
-        return paymentLinkRepository.findByBusinessId(currentUser.businessId());
+        return paymentLinkRepository.findByBusinessId(currentUser.businessId(), pageable);
     }
 
     public void revoke(UUID linkId) {
