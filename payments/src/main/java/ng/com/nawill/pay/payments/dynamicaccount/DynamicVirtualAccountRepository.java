@@ -1,9 +1,10 @@
 package ng.com.nawill.pay.payments.dynamicaccount;
 
 import jakarta.persistence.LockModeType;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -12,7 +13,7 @@ public interface DynamicVirtualAccountRepository extends JpaRepository<DynamicVi
 
     boolean existsByAccountNumber(String accountNumber);
 
-    List<DynamicVirtualAccount> findByBusinessId(UUID businessId);
+    Page<DynamicVirtualAccount> findByBusinessId(UUID businessId, Pageable pageable);
 
     /** Locked for the whole eligibility-check-then-deposit so a second simulated deposit can't land after the account is already PAID. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

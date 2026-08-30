@@ -1,5 +1,6 @@
 package ng.com.nawill.pay.app.it;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import ng.com.nawill.pay.app.NawillPayApplication;
@@ -9,8 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -139,5 +143,12 @@ public abstract class AbstractIntegrationTest {
         headers.setBearerAuth(token);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
+    }
+
+    /** GET a paginated list endpoint (returns PageResponse&lt;T&gt;) and unwrap its "content" array. */
+    @SuppressWarnings("unchecked")
+    protected List<Map<String, Object>> getPagedContent(String path, HttpHeaders headers) {
+        ResponseEntity<Map> response = restTemplate.exchange(url(path), HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        return (List<Map<String, Object>>) response.getBody().get("content");
     }
 }

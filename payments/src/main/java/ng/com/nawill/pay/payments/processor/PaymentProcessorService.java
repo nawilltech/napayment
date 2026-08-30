@@ -1,10 +1,11 @@
 package ng.com.nawill.pay.payments.processor;
 
-import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +29,10 @@ public class PaymentProcessorService {
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentProcessor> list() {
-        return repository.findAll();
+    public Page<PaymentProcessor> list(String term, Pageable pageable) {
+        return (term == null || term.isBlank())
+                ? repository.findAll(pageable)
+                : repository.findByNameContainingIgnoreCase(term.trim(), pageable);
     }
 
     @Transactional(readOnly = true)

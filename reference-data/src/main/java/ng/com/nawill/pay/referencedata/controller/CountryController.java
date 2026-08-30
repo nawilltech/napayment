@@ -1,12 +1,15 @@
 package ng.com.nawill.pay.referencedata.controller;
 
-import java.util.List;
 import java.util.UUID;
+import ng.com.nawill.pay.common.web.PageDefaults;
+import ng.com.nawill.pay.common.web.PageResponse;
 import ng.com.nawill.pay.referencedata.dto.CountryResponse;
 import ng.com.nawill.pay.referencedata.service.ReferenceDataService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -20,8 +23,11 @@ public class CountryController {
     }
 
     @GetMapping
-    public List<CountryResponse> listCountries() {
-        return referenceDataService.listCountries().stream().map(CountryResponse::from).toList();
+    public PageResponse<CountryResponse> listCountries(@RequestParam(required = false) String term,
+                                                         @RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                                         @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return PageResponse.from(
+                referenceDataService.listCountries(term, PageRequest.of(page, size)).map(CountryResponse::from));
     }
 
     @GetMapping("/{id}")

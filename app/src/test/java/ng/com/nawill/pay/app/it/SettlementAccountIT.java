@@ -77,10 +77,8 @@ class SettlementAccountIT extends AbstractIntegrationTest {
                 new HttpEntity<>(Map.of("autoSettle", true), authHeaders(token)), Void.class);
         assertThat(toggle.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
-        ResponseEntity<List> list = restTemplate.exchange(
-                url("/api/v1/settlement-accounts"), HttpMethod.GET, new HttpEntity<>(authHeaders(token)), List.class);
-        assertThat(list.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(list.getBody()).hasSize(1);
+        List<Map<String, Object>> list = getPagedContent("/api/v1/settlement-accounts", authHeaders(token));
+        assertThat(list).hasSize(1);
     }
 
     private String businessSignupToken(String firstName, String lastName) {
