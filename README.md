@@ -10,7 +10,9 @@ throughout. See [`docs/nawill-pay.md`](docs/nawill-pay.md) — a single
 consolidated document (requirements, technical architecture & schema,
 security/idempotency/deployment deep-dive, and the contribution/naming-
 convention guide, each as its own chapter) — for the full spec this build
-implements.
+implements. For a practical per-module developer reference (key classes,
+endpoints, how to extend it, gotchas), see [`docs/modules/`](docs/modules/) —
+one file per module.
 
 ## Module layout
 
