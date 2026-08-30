@@ -47,3 +47,7 @@ nawill:
       password: ${AUTH_SUPERADMIN_PASSWORD}
   security:
     encryption-key: ${NAWILL_ENCRYPTION_KEY}
+  paystack:
+    base-url: https://api.paystack.co
+    # Optional: unset in test (a fake gateway stands in) or if verification isn't needed yet.
+    secret-key: ${PAYSTACK_TEST_PRIVATE_KEY:}
