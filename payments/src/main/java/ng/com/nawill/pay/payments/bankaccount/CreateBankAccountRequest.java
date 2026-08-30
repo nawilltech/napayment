@@ -6,7 +6,6 @@ import java.util.UUID;
 
 public record CreateBankAccountRequest(
         @NotNull UUID bankId,
-        @NotBlank String accountNumber,
-        @NotBlank String accountName
+        @NotBlank String accountNumber
 ) {
 }

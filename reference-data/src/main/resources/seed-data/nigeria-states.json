@@ -1,0 +1,187 @@
+[
+  {
+    "name": "Abia",
+    "isoCode": "NG-AB",
+    "capital": "Umuahia"
+  },
+  {
+    "name": "Adamawa",
+    "isoCode": "NG-AD",
+    "capital": "Yola"
+  },
+  {
+    "name": "Akwa Ibom",
+    "isoCode": "NG-AK",
+    "capital": "Uyo"
+  },
+  {
+    "name": "Anambra",
+    "isoCode": "NG-AN",
+    "capital": "Awka"
+  },
+  {
+    "name": "Bauchi",
+    "isoCode": "NG-BA",
+    "capital": "Bauchi"
+  },
+  {
+    "name": "Bayelsa",
+    "isoCode": "NG-BY",
+    "capital": "Yenagoa"
+  },
+  {
+    "name": "Benue",
+    "isoCode": "NG-BE",
+    "capital": "Makurdi"
+  },
+  {
+    "name": "Borno",
+    "isoCode": "NG-BO",
+    "capital": "Maiduguri"
+  },
+  {
+    "name": "Cross River",
+    "isoCode": "NG-CR",
+    "capital": "Calabar"
+  },
+  {
+    "name": "Delta",
+    "isoCode": "NG-DE",
+    "capital": "Asaba"
+  },
+  {
+    "name": "Ebonyi",
+    "isoCode": "NG-EB",
+    "capital": "Abakaliki"
+  },
+  {
+    "name": "Edo",
+    "isoCode": "NG-ED",
+    "capital": "Benin City"
+  },
+  {
+    "name": "Ekiti",
+    "isoCode": "NG-EK",
+    "capital": "Ado Ekiti"
+  },
+  {
+    "name": "Enugu",
+    "isoCode": "NG-EN",
+    "capital": "Enugu"
+  },
+  {
+    "name": "Federal Capital Territory",
+    "isoCode": "NG-FC",
+    "capital": "Abuja"
+  },
+  {
+    "name": "Gombe",
+    "isoCode": "NG-GO",
+    "capital": "Gombe"
+  },
+  {
+    "name": "Imo",
+    "isoCode": "NG-IM",
+    "capital": "Owerri"
+  },
+  {
+    "name": "Jigawa",
+    "isoCode": "NG-JI",
+    "capital": "Dutse"
+  },
+  {
+    "name": "Kaduna",
+    "isoCode": "NG-KD",
+    "capital": "Kaduna"
+  },
+  {
+    "name": "Kano",
+    "isoCode": "NG-KN",
+    "capital": "Kano"
+  },
+  {
+    "name": "Katsina",
+    "isoCode": "NG-KT",
+    "capital": "Katsina"
+  },
+  {
+    "name": "Kebbi",
+    "isoCode": "NG-KE",
+    "capital": "Birnin Kebbi"
+  },
+  {
+    "name": "Kogi",
+    "isoCode": "NG-KO",
+    "capital": "Lokoja"
+  },
+  {
+    "name": "Kwara",
+    "isoCode": "NG-KW",
+    "capital": "Ilorin"
+  },
+  {
+    "name": "Lagos",
+    "isoCode": "NG-LA",
+    "capital": "Ikeja"
+  },
+  {
+    "name": "Nasarawa",
+    "isoCode": "NG-NA",
+    "capital": "Lafia"
+  },
+  {
+    "name": "Niger",
+    "isoCode": "NG-NI",
+    "capital": "Minna"
+  },
+  {
+    "name": "Ogun",
+    "isoCode": "NG-OG",
+    "capital": "Abeokuta"
+  },
+  {
+    "name": "Ondo",
+    "isoCode": "NG-ON",
+    "capital": "Akure"
+  },
+  {
+    "name": "Osun",
+    "isoCode": "NG-OS",
+    "capital": "Osogbo"
+  },
+  {
+    "name": "Oyo",
+    "isoCode": "NG-OY",
+    "capital": "Ibadan"
+  },
+  {
+    "name": "Plateau",
+    "isoCode": "NG-PL",
+    "capital": "Jos"
+  },
+  {
+    "name": "Rivers",
+    "isoCode": "NG-RI",
+    "capital": "Port Harcourt"
+  },
+  {
+    "name": "Sokoto",
+    "isoCode": "NG-SO",
+    "capital": "Sokoto"
+  },
+  {
+    "name": "Taraba",
+    "isoCode": "NG-TA",
+    "capital": "Jalingo"
+  },
+  {
+    "name": "Yobe",
+    "isoCode": "NG-YO",
+    "capital": "Damaturu"
+  },
+  {
+    "name": "Zamfara",
+    "isoCode": "NG-ZA",
+    "capital": "Gusau"
+  }
+]
