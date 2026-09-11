@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -63,5 +64,17 @@ public class ApiKeyController {
     public ResponseEntity<Void> removeIpFromWhitelist(@RequestParam String cidr) {
         apiKeyService.removeIpFromWhitelist(cidr);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/webhook-config")
+    @PreAuthorize("@auth.can('apikeys:manage')")
+    public WebhookConfigResponse updateWebhookConfig(@RequestBody WebhookConfigRequest request) {
+        return apiKeyService.updateWebhookConfig(request);
+    }
+
+    @GetMapping("/webhook-config")
+    @PreAuthorize("@auth.can('apikeys:manage')")
+    public WebhookConfigResponse getWebhookConfig() {
+        return apiKeyService.getWebhookConfig();
     }
 }

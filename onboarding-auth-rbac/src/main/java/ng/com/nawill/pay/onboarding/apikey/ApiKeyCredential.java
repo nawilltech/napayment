@@ -29,6 +29,12 @@ public class ApiKeyCredential extends BaseEntity {
     @Column(name = "secret_key_encrypted", nullable = false, columnDefinition = "text")
     private String secretKeyEncrypted;
 
+    @Column(name = "callback_url", length = 512)
+    private String callbackUrl;
+
+    @Column(name = "webhook_url", length = 512)
+    private String webhookUrl;
+
     protected ApiKeyCredential() {
     }
 
@@ -48,5 +54,18 @@ public class ApiKeyCredential extends BaseEntity {
 
     public String getSecretKeyEncrypted() {
         return secretKeyEncrypted;
+    }
+
+    public String getCallbackUrl() {
+        return callbackUrl;
+    }
+
+    public String getWebhookUrl() {
+        return webhookUrl;
+    }
+
+    public void updateWebhookConfig(String callbackUrl, String webhookUrl) {
+        this.callbackUrl = callbackUrl;
+        this.webhookUrl = webhookUrl;
     }
 }
