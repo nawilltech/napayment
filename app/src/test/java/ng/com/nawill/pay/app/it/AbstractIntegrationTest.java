@@ -16,6 +16,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -35,6 +36,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  */
 @SpringBootTest(classes = NawillPayApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ExtendWith(LogCaptureExtension.class)
+@ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES;
