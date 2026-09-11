@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.apikey;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -84,6 +86,42 @@ public class ApiKeyService {
         ApiKeyCredential apiKey = requireActiveKey();
         return PageResponse.from(
                 ipWhitelistRepository.findByApiKeyId(apiKey.getId(), pageable).map(ApiKeyIpWhitelist::getCidr));
+    }
+
+    /**
+     * FR-9's "configure a webhook URL". Reachability is deliberately not
+     * checked at save time (contract note: a business may configure this
+     * before their endpoint is live) - only that a non-blank value is a
+     * well-formed absolute HTTP(S) URL.
+     */
+    public WebhookConfigResponse updateWebhookConfig(WebhookConfigRequest request) {
+        ApiKeyCredential apiKey = requireActiveKey();
+        String callbackUrl = validateUrl(request.callbackUrl());
+        String webhookUrl = validateUrl(request.webhookUrl());
+        apiKey.updateWebhookConfig(callbackUrl, webhookUrl);
+        apiKey = apiKeyRepository.save(apiKey);
+        log.info("webhook config updated: apiKeyId={}", apiKey.getId());
+        return WebhookConfigResponse.from(apiKey);
+    }
+
+    @Transactional(readOnly = true)
+    public WebhookConfigResponse getWebhookConfig() {
+        return WebhookConfigResponse.from(requireActiveKey());
+    }
+
+    private String validateUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI parsed = new URI(url);
+            if (parsed.getScheme() == null || !parsed.getScheme().matches("https?") || parsed.getHost() == null) {
+                throw new BadRequestException("Enter a valid URL");
+            }
+        } catch (URISyntaxException e) {
+            throw new BadRequestException("Enter a valid URL");
+        }
+        return url;
     }
 
     private ApiKeyGeneratedResponse issue(UUID businessId) {

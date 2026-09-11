@@ -16,6 +16,9 @@ import ng.com.nawill.pay.onboarding.rbac.RoleRepository;
 import ng.com.nawill.pay.onboarding.rbac.UserRole;
 import ng.com.nawill.pay.onboarding.rbac.UserRoleRepository;
 import ng.com.nawill.pay.onboarding.security.JwtService;
+import ng.com.nawill.pay.onboarding.team.InvitationStatus;
+import ng.com.nawill.pay.onboarding.team.TeamInvitation;
+import ng.com.nawill.pay.onboarding.team.TeamInvitationRepository;
 import ng.com.nawill.pay.onboarding.user.User;
 import ng.com.nawill.pay.onboarding.user.UserRepository;
 import ng.com.nawill.pay.onboarding.user.UserType;
@@ -50,6 +53,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final CurrentUserResolver currentUserResolver;
+    private final TeamInvitationRepository teamInvitationRepository;
 
     public AuthService(UserRepository userRepository, BusinessRepository businessRepository,
                         RoleRepository roleRepository, UserRoleRepository userRoleRepository,
@@ -57,7 +61,7 @@ public class AuthService {
                         VirtualAccountProvisioningService virtualAccountProvisioningService,
                         PasswordEncoder passwordEncoder, JwtService jwtService,
                         LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
-                        CurrentUserResolver currentUserResolver) {
+                        CurrentUserResolver currentUserResolver, TeamInvitationRepository teamInvitationRepository) {
         this.userRepository = userRepository;
         this.businessRepository = businessRepository;
         this.roleRepository = roleRepository;
@@ -69,6 +73,7 @@ public class AuthService {
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.currentUserResolver = currentUserResolver;
+        this.teamInvitationRepository = teamInvitationRepository;
     }
 
     public AuthResponse signup(SignupRequest request) {
@@ -97,6 +102,42 @@ public class AuthService {
 
         assignDefaultRole(user, defaultRoleName);
         log.info("user signed up: userId={} businessSignup={}", user.getId(), request.isBusinessSignup());
+
+        return issueTokenFor(user);
+    }
+
+    /**
+     * FR-5a's "join an existing business" signup variant: attaches the new
+     * user to the inviting business under the invitation's role, instead of
+     * {@link #signup}'s always-a-new-business/individual path. No new
+     * virtual account is provisioned - the business already has one from its
+     * original signup, and it's shared across every user on that business.
+     */
+    public AuthResponse signupViaInvite(AcceptInviteRequest request) {
+        TeamInvitation invitation = teamInvitationRepository.findByToken(request.token())
+                .filter(i -> i.getInvitationStatus() == InvitationStatus.PENDING)
+                .orElseThrow(() -> new BadRequestException("INVALID_INVITE", "This invite is no longer valid"));
+
+        if (userRepository.existsByEmail(invitation.getEmail())) {
+            throw new BadRequestException("EMAIL_TAKEN", "An account with this email already exists");
+        }
+        if (userRepository.existsByPhoneNo(request.phoneNo())) {
+            throw new BadRequestException("PHONE_TAKEN", "An account with this phone number already exists");
+        }
+
+        User user = new User(request.firstName(), request.middleName(), request.lastName(), invitation.getEmail(),
+                request.phoneNo(), passwordEncoder.encode(request.password()), UserType.USER);
+        user.assignBusiness(invitation.getBusinessId());
+        user = userRepository.save(user);
+
+        Role role = roleRepository.findById(invitation.getRoleId())
+                .orElseThrow(() -> new IllegalStateException("Invitation role not found: " + invitation.getRoleId()));
+        userRoleRepository.save(new UserRole(user, role));
+
+        invitation.accept();
+        teamInvitationRepository.save(invitation);
+        log.info("user joined business via invite: userId={} businessId={} invitationId={}",
+                user.getId(), invitation.getBusinessId(), invitation.getId());
 
         return issueTokenFor(user);
     }

@@ -23,6 +23,11 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.signup(request));
     }
 
+    @PostMapping("/signup/accept-invite")
+    public ResponseEntity<AuthResponse> signupViaInvite(@Valid @RequestBody AcceptInviteRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.signupViaInvite(request));
+    }
+
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
