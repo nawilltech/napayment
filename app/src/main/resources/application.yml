@@ -72,3 +72,7 @@ nawill:
       base-dir: ${NAWILL_STORAGE_LOCAL_BASE_DIR:./.data/uploads}
   notifications:
     email-from: ${SMTP_FROM}
+  paystack:
+    base-url: https://api.paystack.co
+    # Optional: unset in test (a fake gateway stands in) or if verification isn't needed yet.
+    secret-key: ${PAYSTACK_TEST_PRIVATE_KEY:}
