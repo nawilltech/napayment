@@ -4,6 +4,8 @@ import java.util.List;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,13 @@ public class VirtualAccountQueryService {
         return currentUser.hasBusinessScope()
                 ? virtualAccountRepository.findByBusinessId(currentUser.businessId())
                 : virtualAccountRepository.findByUserId(currentUser.userId());
+    }
+
+    public Page<VirtualAccount> listForCaller(Pageable pageable) {
+        CurrentUser currentUser = currentUserResolver.requireCurrentUser();
+        return currentUser.hasBusinessScope()
+                ? virtualAccountRepository.findByBusinessId(currentUser.businessId(), pageable)
+                : virtualAccountRepository.findByUserId(currentUser.userId(), pageable);
     }
 
     /**

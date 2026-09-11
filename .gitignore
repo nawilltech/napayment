@@ -23,3 +23,6 @@ target/
 
 # Local Redis snapshot (written by a locally-run redis-server in the repo root)
 *.rdb
+
+# Local-disk stand-in for KYC document/attachment storage (LocalFileStorageGateway)
+.data/

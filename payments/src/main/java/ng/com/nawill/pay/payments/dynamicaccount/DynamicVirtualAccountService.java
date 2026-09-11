@@ -2,7 +2,6 @@ package ng.com.nawill.pay.payments.dynamicaccount;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
@@ -18,6 +17,8 @@ import ng.com.nawill.pay.payments.transaction.TransactionType;
 import ng.com.nawill.pay.payments.util.AccountNumberGenerator;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountQueryService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,9 +69,9 @@ public class DynamicVirtualAccountService {
     }
 
     @Transactional(readOnly = true)
-    public List<DynamicVirtualAccount> listForCallerBusiness() {
+    public Page<DynamicVirtualAccount> listForCallerBusiness(Pageable pageable) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
-        return dynamicVirtualAccountRepository.findByBusinessId(currentUser.businessId());
+        return dynamicVirtualAccountRepository.findByBusinessId(currentUser.businessId(), pageable);
     }
 
     /** Locked for the whole eligibility-check -> transact -> mark-paid sequence, same concurrency principle as payment-link redemption. */

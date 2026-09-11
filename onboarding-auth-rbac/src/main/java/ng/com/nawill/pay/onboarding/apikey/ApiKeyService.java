@@ -1,16 +1,19 @@
 package ng.com.nawill.pay.onboarding.apikey;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
 import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.common.web.PageResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,11 +63,10 @@ public class ApiKeyService {
     }
 
     @Transactional(readOnly = true)
-    public List<ApiKeyResponse> list() {
+    public PageResponse<ApiKeyResponse> list(Pageable pageable) {
         UUID businessId = currentUserResolver.requireBusinessScope().businessId();
-        return apiKeyRepository.findByBusinessIdAndStatus(businessId, EntityStatus.ACTIVE)
-                .map(key -> List.of(ApiKeyResponse.from(key)))
-                .orElseGet(List::of);
+        return PageResponse.from(apiKeyRepository.findByBusinessIdAndStatus(businessId, EntityStatus.ACTIVE, pageable)
+                .map(ApiKeyResponse::from));
     }
 
     public void addIpToWhitelist(IpWhitelistRequest request) {
@@ -80,9 +82,46 @@ public class ApiKeyService {
     }
 
     @Transactional(readOnly = true)
-    public List<String> listWhitelist() {
+    public PageResponse<String> listWhitelist(Pageable pageable) {
         ApiKeyCredential apiKey = requireActiveKey();
-        return ipWhitelistRepository.findByApiKeyId(apiKey.getId()).stream().map(ApiKeyIpWhitelist::getCidr).toList();
+        return PageResponse.from(
+                ipWhitelistRepository.findByApiKeyId(apiKey.getId(), pageable).map(ApiKeyIpWhitelist::getCidr));
+    }
+
+    /**
+     * FR-9's "configure a webhook URL". Reachability is deliberately not
+     * checked at save time (contract note: a business may configure this
+     * before their endpoint is live) - only that a non-blank value is a
+     * well-formed absolute HTTP(S) URL.
+     */
+    public WebhookConfigResponse updateWebhookConfig(WebhookConfigRequest request) {
+        ApiKeyCredential apiKey = requireActiveKey();
+        String callbackUrl = validateUrl(request.callbackUrl());
+        String webhookUrl = validateUrl(request.webhookUrl());
+        apiKey.updateWebhookConfig(callbackUrl, webhookUrl);
+        apiKey = apiKeyRepository.save(apiKey);
+        log.info("webhook config updated: apiKeyId={}", apiKey.getId());
+        return WebhookConfigResponse.from(apiKey);
+    }
+
+    @Transactional(readOnly = true)
+    public WebhookConfigResponse getWebhookConfig() {
+        return WebhookConfigResponse.from(requireActiveKey());
+    }
+
+    private String validateUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI parsed = new URI(url);
+            if (parsed.getScheme() == null || !parsed.getScheme().matches("https?") || parsed.getHost() == null) {
+                throw new BadRequestException("Enter a valid URL");
+            }
+        } catch (URISyntaxException e) {
+            throw new BadRequestException("Enter a valid URL");
+        }
+        return url;
     }
 
     private ApiKeyGeneratedResponse issue(UUID businessId) {

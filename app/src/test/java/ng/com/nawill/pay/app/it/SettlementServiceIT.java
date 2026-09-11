@@ -39,9 +39,8 @@ class SettlementServiceIT extends AbstractIntegrationTest {
         ResponseEntity<Map> signup = restTemplate.postForEntity(url("/api/v1/auth/signup"), businessSignupBody, Map.class);
         businessToken = (String) signup.getBody().get("accessToken");
 
-        ResponseEntity<List> accounts = restTemplate.exchange(
-                url("/api/v1/virtual-accounts"), HttpMethod.GET, new HttpEntity<>(authHeaders(businessToken)), List.class);
-        virtualAccountId = (String) ((Map<String, Object>) accounts.getBody().get(0)).get("id");
+        List<Map<String, Object>> accounts = getPagedContent("/api/v1/virtual-accounts", authHeaders(businessToken));
+        virtualAccountId = (String) accounts.get(0).get("id");
 
         String adminToken = superAdminToken();
         Map<String, Object> processorRequest = Map.of("name", "SandboxProcessor-" + UUID.randomUUID());
@@ -108,9 +107,8 @@ class SettlementServiceIT extends AbstractIntegrationTest {
         assertThat(collect.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(collect.getBody().get("transactionStatus")).isEqualTo("PAID");
 
-        ResponseEntity<List> accounts = restTemplate.exchange(
-                url("/api/v1/virtual-accounts"), HttpMethod.GET, new HttpEntity<>(authHeaders(businessToken)), List.class);
-        Map<String, Object> account = (Map<String, Object>) accounts.getBody().get(0);
+        List<Map<String, Object>> accounts = getPagedContent("/api/v1/virtual-accounts", authHeaders(businessToken));
+        Map<String, Object> account = accounts.get(0);
         // Auto-settle at 100% split moves the full credited amount back out immediately.
         assertThat(((Number) account.get("balance")).longValue()).isZero();
     }

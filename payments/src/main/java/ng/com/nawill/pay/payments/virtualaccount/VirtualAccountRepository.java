@@ -4,6 +4,8 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +19,10 @@ public interface VirtualAccountRepository extends JpaRepository<VirtualAccount, 
     List<VirtualAccount> findByUserId(UUID userId);
 
     List<VirtualAccount> findByBusinessId(UUID businessId);
+
+    Page<VirtualAccount> findByUserId(UUID userId, Pageable pageable);
+
+    Page<VirtualAccount> findByBusinessId(UUID businessId, Pageable pageable);
 
     /**
      * Row-locked read for any balance-mutating operation (credit, debit,

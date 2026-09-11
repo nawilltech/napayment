@@ -1,6 +1,5 @@
 package ng.com.nawill.pay.referencedata.service;
 
-import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.referencedata.entity.AdminDivision;
@@ -9,6 +8,8 @@ import ng.com.nawill.pay.referencedata.entity.Country;
 import ng.com.nawill.pay.referencedata.repository.AdminDivisionRepository;
 import ng.com.nawill.pay.referencedata.repository.BankRepository;
 import ng.com.nawill.pay.referencedata.repository.CountryRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +29,10 @@ public class ReferenceDataService {
         this.bankRepository = bankRepository;
     }
 
-    public List<Country> listCountries() {
-        return countryRepository.findAll();
+    public Page<Country> listCountries(String term, Pageable pageable) {
+        return isBlank(term)
+                ? countryRepository.findAll(pageable)
+                : countryRepository.findByNameContainingIgnoreCase(term.trim(), pageable);
     }
 
     public Country getCountry(UUID id) {
@@ -37,17 +40,31 @@ public class ReferenceDataService {
                 .orElseThrow(() -> new ResourceNotFoundException("Country not found: " + id));
     }
 
-    public List<AdminDivision> listDivisions(UUID countryId, Integer level) {
-        return level == null
-                ? adminDivisionRepository.findByCountryId(countryId)
-                : adminDivisionRepository.findByCountryIdAndLevel(countryId, level);
+    public Page<AdminDivision> listDivisions(UUID countryId, Integer level, String term, Pageable pageable) {
+        if (level == null) {
+            return isBlank(term)
+                    ? adminDivisionRepository.findByCountryId(countryId, pageable)
+                    : adminDivisionRepository.findByCountryIdAndNameContainingIgnoreCase(countryId, term.trim(), pageable);
+        }
+        return isBlank(term)
+                ? adminDivisionRepository.findByCountryIdAndLevel(countryId, level, pageable)
+                : adminDivisionRepository.findByCountryIdAndLevelAndNameContainingIgnoreCase(
+                        countryId, level, term.trim(), pageable);
     }
 
-    public List<AdminDivision> listChildren(UUID parentId) {
-        return adminDivisionRepository.findByParentId(parentId);
+    public Page<AdminDivision> listChildren(UUID parentId, String term, Pageable pageable) {
+        return isBlank(term)
+                ? adminDivisionRepository.findByParentId(parentId, pageable)
+                : adminDivisionRepository.findByParentIdAndNameContainingIgnoreCase(parentId, term.trim(), pageable);
     }
 
-    public List<Bank> listBanks() {
-        return bankRepository.findAll();
+    public Page<Bank> listBanks(String term, Pageable pageable) {
+        return isBlank(term)
+                ? bankRepository.findAll(pageable)
+                : bankRepository.findByNameContainingIgnoreCase(term.trim(), pageable);
+    }
+
+    private static boolean isBlank(String term) {
+        return term == null || term.isBlank();
     }
 }

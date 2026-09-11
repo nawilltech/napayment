@@ -1,9 +1,11 @@
 package ng.com.nawill.pay.referencedata.controller;
 
-import java.util.List;
 import java.util.UUID;
+import ng.com.nawill.pay.common.web.PageDefaults;
+import ng.com.nawill.pay.common.web.PageResponse;
 import ng.com.nawill.pay.referencedata.dto.AdminDivisionResponse;
 import ng.com.nawill.pay.referencedata.service.ReferenceDataService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,14 +23,21 @@ public class AdminDivisionController {
     }
 
     @GetMapping("/countries/{countryId}/states")
-    public List<AdminDivisionResponse> listDivisions(@PathVariable UUID countryId,
-                                                       @RequestParam(required = false) Integer level) {
-        return referenceDataService.listDivisions(countryId, level).stream()
-                .map(AdminDivisionResponse::from).toList();
+    public PageResponse<AdminDivisionResponse> listDivisions(@PathVariable UUID countryId,
+                                                               @RequestParam(required = false) Integer level,
+                                                               @RequestParam(required = false) String term,
+                                                               @RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                                               @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return PageResponse.from(referenceDataService.listDivisions(countryId, level, term, PageRequest.of(page, size))
+                .map(AdminDivisionResponse::from));
     }
 
     @GetMapping("/states/{parentId}/children")
-    public List<AdminDivisionResponse> listChildren(@PathVariable UUID parentId) {
-        return referenceDataService.listChildren(parentId).stream().map(AdminDivisionResponse::from).toList();
+    public PageResponse<AdminDivisionResponse> listChildren(@PathVariable UUID parentId,
+                                                              @RequestParam(required = false) String term,
+                                                              @RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                                              @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return PageResponse.from(referenceDataService.listChildren(parentId, term, PageRequest.of(page, size))
+                .map(AdminDivisionResponse::from));
     }
 }

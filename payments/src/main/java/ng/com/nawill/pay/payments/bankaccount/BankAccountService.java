@@ -1,10 +1,11 @@
 package ng.com.nawill.pay.payments.bankaccount;
 
-import java.util.List;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.bankverification.BankVerificationGateway.ResolvedAccount;
 import ng.com.nawill.pay.payments.bankverification.BankVerificationService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,8 +37,8 @@ public class BankAccountService {
     }
 
     @Transactional(readOnly = true)
-    public List<BankAccount> listForCallerBusiness() {
+    public Page<BankAccount> listForCallerBusiness(Pageable pageable) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
-        return bankAccountRepository.findByBusinessId(currentUser.businessId());
+        return bankAccountRepository.findByBusinessId(currentUser.businessId(), pageable);
     }
 }

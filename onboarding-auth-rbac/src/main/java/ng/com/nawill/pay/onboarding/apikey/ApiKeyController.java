@@ -1,13 +1,16 @@
 package ng.com.nawill.pay.onboarding.apikey;
 
 import jakarta.validation.Valid;
-import java.util.List;
+import ng.com.nawill.pay.common.web.PageDefaults;
+import ng.com.nawill.pay.common.web.PageResponse;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,8 +40,9 @@ public class ApiKeyController {
 
     @GetMapping
     @PreAuthorize("@auth.can('apikeys:manage')")
-    public List<ApiKeyResponse> list() {
-        return apiKeyService.list();
+    public PageResponse<ApiKeyResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                              @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return apiKeyService.list(PageRequest.of(page, size));
     }
 
     @PostMapping("/ip-whitelist")
@@ -50,8 +54,9 @@ public class ApiKeyController {
 
     @GetMapping("/ip-whitelist")
     @PreAuthorize("@auth.can('apikeys:manage')")
-    public List<String> listIpWhitelist() {
-        return apiKeyService.listWhitelist();
+    public PageResponse<String> listIpWhitelist(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
+                                                 @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
+        return apiKeyService.listWhitelist(PageRequest.of(page, size));
     }
 
     @DeleteMapping("/ip-whitelist")
@@ -59,5 +64,17 @@ public class ApiKeyController {
     public ResponseEntity<Void> removeIpFromWhitelist(@RequestParam String cidr) {
         apiKeyService.removeIpFromWhitelist(cidr);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/webhook-config")
+    @PreAuthorize("@auth.can('apikeys:manage')")
+    public WebhookConfigResponse updateWebhookConfig(@RequestBody WebhookConfigRequest request) {
+        return apiKeyService.updateWebhookConfig(request);
+    }
+
+    @GetMapping("/webhook-config")
+    @PreAuthorize("@auth.can('apikeys:manage')")
+    public WebhookConfigResponse getWebhookConfig() {
+        return apiKeyService.getWebhookConfig();
     }
 }

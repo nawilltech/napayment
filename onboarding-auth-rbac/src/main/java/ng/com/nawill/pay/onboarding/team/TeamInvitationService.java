@@ -1,0 +1,92 @@
+package ng.com.nawill.pay.onboarding.team;
+
+import java.util.List;
+import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.security.CurrentUser;
+import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.onboarding.email.EmailGateway;
+import ng.com.nawill.pay.onboarding.rbac.Permission;
+import ng.com.nawill.pay.onboarding.rbac.PermissionRepository;
+import ng.com.nawill.pay.onboarding.rbac.Role;
+import ng.com.nawill.pay.onboarding.rbac.RolePermission;
+import ng.com.nawill.pay.onboarding.rbac.RolePermissionRepository;
+import ng.com.nawill.pay.onboarding.rbac.RoleRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** FR-5a: inviting a teammate to join the caller's business under a role template. */
+@Service
+@Transactional
+public class TeamInvitationService {
+
+    private static final Logger log = LoggerFactory.getLogger(TeamInvitationService.class);
+
+    private final TeamInvitationRepository teamInvitationRepository;
+    private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+    private final EmailGateway emailGateway;
+    private final CurrentUserResolver currentUserResolver;
+
+    public TeamInvitationService(TeamInvitationRepository teamInvitationRepository, RoleRepository roleRepository,
+                                  PermissionRepository permissionRepository,
+                                  RolePermissionRepository rolePermissionRepository, EmailGateway emailGateway,
+                                  CurrentUserResolver currentUserResolver) {
+        this.teamInvitationRepository = teamInvitationRepository;
+        this.roleRepository = roleRepository;
+        this.permissionRepository = permissionRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
+        this.emailGateway = emailGateway;
+        this.currentUserResolver = currentUserResolver;
+    }
+
+    public TeamInvitation create(CreateInviteRequest request) {
+        CurrentUser currentUser = currentUserResolver.requireBusinessScope();
+        Role role = findOrCreateRole(currentUser.businessId(), request.roleTemplate());
+
+        TeamInvitation invitation = teamInvitationRepository.save(
+                new TeamInvitation(currentUser.businessId(), request.email(), role.getId(), request.message()));
+
+        log.info("team invitation created: invitationId={} businessId={} roleTemplate={}",
+                invitation.getId(), currentUser.businessId(), request.roleTemplate());
+        emailGateway.send(request.email(), "You've been invited to join Nawill Pay",
+                "You've been invited to join a business on Nawill Pay as " + request.roleTemplate().roleName()
+                        + ". Accept your invite: /invite/" + invitation.getToken()
+                        + (request.message() == null ? "" : "\n\nMessage from the inviter: " + request.message()));
+
+        return invitation;
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamInvitation> list() {
+        CurrentUser currentUser = currentUserResolver.requireBusinessScope();
+        return teamInvitationRepository.findByBusinessId(currentUser.businessId());
+    }
+
+    public void revoke(UUID invitationId) {
+        CurrentUser currentUser = currentUserResolver.requireBusinessScope();
+        TeamInvitation invitation = teamInvitationRepository.findByIdAndBusinessId(invitationId, currentUser.businessId())
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found: " + invitationId));
+        invitation.revoke();
+        teamInvitationRepository.save(invitation);
+    }
+
+    /**
+     * Reuses an existing role of the same name for this business (created by
+     * an earlier invite), or creates it with the template's fixed permission
+     * set - mirrors what the frontend used to do itself via {@code POST
+     * /api/v1/roles} before this endpoint existed.
+     */
+    private Role findOrCreateRole(UUID businessId, RoleTemplate template) {
+        return roleRepository.findByBusinessIdAndName(businessId, template.roleName())
+                .orElseGet(() -> {
+                    Role role = roleRepository.save(new Role(template.roleName(), businessId));
+                    List<Permission> permissions = permissionRepository.findByNameIn(template.permissionNames());
+                    permissions.forEach(permission -> rolePermissionRepository.save(new RolePermission(role, permission)));
+                    return role;
+                });
+    }
+}

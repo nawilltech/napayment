@@ -20,6 +20,23 @@ spring:
     redis:
       host: ${NAWILL_REDIS_HOST}
       port: ${NAWILL_REDIS_PORT}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          # Port 465 is implicit TLS (SMTPS), not STARTTLS on 587 - ssl.enable
+          # wraps the socket in TLS from the start of the connection.
+          ssl:
+            enable: true
 
 server:
   port: ${SERVER_PORT:8080}
@@ -47,6 +64,14 @@ nawill:
       password: ${AUTH_SUPERADMIN_PASSWORD}
   security:
     encryption-key: ${NAWILL_ENCRYPTION_KEY}
+  storage:
+    local:
+      # TODO(FE-Gap, doc F9): local-disk stand-in for KYC document/attachment
+      # storage - see common-core's FileStorageGateway Javadoc for the
+      # production swap-out story (S3-compatible object storage).
+      base-dir: ${NAWILL_STORAGE_LOCAL_BASE_DIR:./.data/uploads}
+  notifications:
+    email-from: ${SMTP_FROM}
   paystack:
     base-url: https://api.paystack.co
     # Optional: unset in test (a fake gateway stands in) or if verification isn't needed yet.
