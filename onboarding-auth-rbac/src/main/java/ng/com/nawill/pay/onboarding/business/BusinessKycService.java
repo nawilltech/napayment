@@ -17,14 +17,16 @@ public class BusinessKycService {
     private final BusinessRepository businessRepository;
     private final CountryRepository countryRepository;
     private final AdminDivisionRepository adminDivisionRepository;
+    private final CacLookupGateway cacLookupGateway;
     private final CurrentUserResolver currentUserResolver;
 
     public BusinessKycService(BusinessRepository businessRepository, CountryRepository countryRepository,
-                               AdminDivisionRepository adminDivisionRepository,
+                               AdminDivisionRepository adminDivisionRepository, CacLookupGateway cacLookupGateway,
                                CurrentUserResolver currentUserResolver) {
         this.businessRepository = businessRepository;
         this.countryRepository = countryRepository;
         this.adminDivisionRepository = adminDivisionRepository;
+        this.cacLookupGateway = cacLookupGateway;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -36,8 +38,9 @@ public class BusinessKycService {
         if (!adminDivisionRepository.existsById(request.stateId())) {
             throw new BadRequestException("UNKNOWN_STATE", "Unknown state: " + request.stateId());
         }
+        CacLookupResult cacLookupResult = cacLookupGateway.lookup(request.cacNumber(), request.registeredName());
         business.updateKycDetails(request.registeredName(), request.cacNumber(), request.businessType(),
-                request.industry(), request.countryId(), request.stateId(), request.addressLine());
+                request.industry(), request.countryId(), request.stateId(), request.addressLine(), cacLookupResult);
         return businessRepository.save(business);
     }
 

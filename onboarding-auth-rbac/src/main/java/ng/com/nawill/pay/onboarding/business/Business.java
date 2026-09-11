@@ -51,6 +51,15 @@ public class Business extends BaseEntity {
     @Column(name = "kyc_submitted_at")
     private Instant kycSubmittedAt;
 
+    @Column(name = "cac_verified", nullable = false)
+    private boolean cacVerified = false;
+
+    @Column(name = "cac_verified_name", length = 256)
+    private String cacVerifiedName;
+
+    @Column(name = "cac_verification_source", length = 32)
+    private String cacVerificationSource;
+
     protected Business() {
     }
 
@@ -108,8 +117,21 @@ public class Business extends BaseEntity {
         return kycSubmittedAt;
     }
 
+    public boolean isCacVerified() {
+        return cacVerified;
+    }
+
+    public String getCacVerifiedName() {
+        return cacVerifiedName;
+    }
+
+    public String getCacVerificationSource() {
+        return cacVerificationSource;
+    }
+
     public void updateKycDetails(String registeredName, String cacNumber, BusinessType businessType,
-                                  String industry, UUID countryId, UUID stateId, String addressLine) {
+                                  String industry, UUID countryId, UUID stateId, String addressLine,
+                                  CacLookupResult cacLookupResult) {
         this.name = registeredName;
         this.cacNumber = cacNumber;
         this.businessType = businessType;
@@ -118,6 +140,9 @@ public class Business extends BaseEntity {
         this.stateId = stateId;
         this.addressLine = addressLine;
         this.kycDetailsUpdatedAt = Instant.now();
+        this.cacVerified = cacLookupResult.verified();
+        this.cacVerifiedName = cacLookupResult.matchedName();
+        this.cacVerificationSource = cacLookupResult.source();
     }
 
     public void submitKycForReview() {
