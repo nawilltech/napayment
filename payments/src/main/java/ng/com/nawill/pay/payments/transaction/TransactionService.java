@@ -1,6 +1,7 @@
 package ng.com.nawill.pay.payments.transaction;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
@@ -17,6 +18,8 @@ import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +82,25 @@ public class TransactionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + id));
         assertOwnership(transaction.getVirtualAccount());
         return transaction;
+    }
+
+    /**
+     * Backs both the list and analytics endpoints - row-level ownership
+     * scoping and every optional filter live in {@link TransactionSpecifications}
+     * so the two can never see a different notion of "matching transactions".
+     */
+    @Transactional(readOnly = true)
+    public Page<Transaction> list(TransactionFilter filter, Pageable pageable) {
+        CurrentUser currentUser = currentUserResolver.requireCurrentUser();
+        return transactionRepository.findAll(TransactionSpecifications.build(filter, currentUser), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public TransactionAnalyticsResponse analyze(TransactionFilter filter) {
+        CurrentUser currentUser = currentUserResolver.requireCurrentUser();
+        List<Transaction> transactions =
+                transactionRepository.findAll(TransactionSpecifications.build(filter, currentUser));
+        return TransactionAnalyticsResponse.from(filter.startDate(), filter.endDate(), transactions);
     }
 
     private VirtualAccount lockVirtualAccount(UUID virtualAccountId) {
