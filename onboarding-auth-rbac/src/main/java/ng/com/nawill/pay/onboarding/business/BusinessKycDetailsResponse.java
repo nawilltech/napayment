@@ -11,7 +11,8 @@ public record BusinessKycDetailsResponse(
         UUID countryId,
         UUID stateId,
         String addressLine,
-        Instant updatedAt
+        Instant updatedAt,
+        boolean cacVerified
 ) {
 
     public static BusinessKycDetailsResponse from(Business business) {
@@ -23,6 +24,7 @@ public record BusinessKycDetailsResponse(
                 business.getCountryId(),
                 business.getStateId(),
                 business.getAddressLine(),
-                business.getKycDetailsUpdatedAt());
+                business.getKycDetailsUpdatedAt(),
+                business.isCacVerified());
     }
 }

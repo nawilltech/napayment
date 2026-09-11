@@ -14,6 +14,7 @@ import ng.com.nawill.pay.onboarding.rbac.RolePermissionRepository;
 import ng.com.nawill.pay.onboarding.rbac.RoleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,17 +31,21 @@ public class TeamInvitationService {
     private final RolePermissionRepository rolePermissionRepository;
     private final EmailGateway emailGateway;
     private final CurrentUserResolver currentUserResolver;
+    private final String frontendBaseUrl;
 
     public TeamInvitationService(TeamInvitationRepository teamInvitationRepository, RoleRepository roleRepository,
                                   PermissionRepository permissionRepository,
                                   RolePermissionRepository rolePermissionRepository, EmailGateway emailGateway,
-                                  CurrentUserResolver currentUserResolver) {
+                                  CurrentUserResolver currentUserResolver,
+                                  @Value("${nawill.frontend.base-url}") String frontendBaseUrl) {
         this.teamInvitationRepository = teamInvitationRepository;
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.emailGateway = emailGateway;
         this.currentUserResolver = currentUserResolver;
+        this.frontendBaseUrl = frontendBaseUrl.endsWith("/")
+                ? frontendBaseUrl.substring(0, frontendBaseUrl.length() - 1) : frontendBaseUrl;
     }
 
     public TeamInvitation create(CreateInviteRequest request) {
@@ -54,10 +59,15 @@ public class TeamInvitationService {
                 invitation.getId(), currentUser.businessId(), request.roleTemplate());
         emailGateway.send(request.email(), "You've been invited to join Nawill Pay",
                 "You've been invited to join a business on Nawill Pay as " + request.roleTemplate().roleName()
-                        + ". Accept your invite: /invite/" + invitation.getToken()
+                        + ". Accept your invite: " + inviteUrl(invitation)
                         + (request.message() == null ? "" : "\n\nMessage from the inviter: " + request.message()));
 
         return invitation;
+    }
+
+    /** Absolute link into napayment-fe - a bare "/invite/&lt;token&gt;" path is meaningless outside a browser session. */
+    public String inviteUrl(TeamInvitation invitation) {
+        return frontendBaseUrl + "/invite/" + invitation.getToken();
     }
 
     @Transactional(readOnly = true)
