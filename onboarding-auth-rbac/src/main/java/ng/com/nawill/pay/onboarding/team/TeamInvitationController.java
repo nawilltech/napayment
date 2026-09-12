@@ -29,13 +29,15 @@ public class TeamInvitationController {
     public ResponseEntity<InviteResponse> create(@Valid @RequestBody CreateInviteRequest request) {
         TeamInvitation invitation = teamInvitationService.create(request);
         return ResponseEntity.created(URI.create("/api/v1/team/invitations/" + invitation.getId()))
-                .body(InviteResponse.from(invitation));
+                .body(InviteResponse.from(invitation, teamInvitationService.inviteUrl(invitation)));
     }
 
     @GetMapping
     @PreAuthorize("@auth.can('roles:manage')")
     public List<InviteResponse> list() {
-        return teamInvitationService.list().stream().map(InviteResponse::from).toList();
+        return teamInvitationService.list().stream()
+                .map(invitation -> InviteResponse.from(invitation, teamInvitationService.inviteUrl(invitation)))
+                .toList();
     }
 
     @DeleteMapping("/{id}")

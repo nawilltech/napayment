@@ -12,8 +12,8 @@ public record InviteResponse(
         Instant invitedAt
 ) {
 
-    public static InviteResponse from(TeamInvitation invitation) {
+    public static InviteResponse from(TeamInvitation invitation, String inviteUrl) {
         return new InviteResponse(invitation.getId(), invitation.getEmail(), invitation.getRoleId(),
-                invitation.getInvitationStatus(), "/invite/" + invitation.getToken(), invitation.getInvitedAt());
+                invitation.getInvitationStatus(), inviteUrl, invitation.getInvitedAt());
     }
 }

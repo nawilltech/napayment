@@ -53,12 +53,18 @@ management:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+    # Alphabetical section headings (tags) and, within each, alphabetical
+    # operations - springdoc/swagger-ui default order is declaration order,
+    # which drifts as controllers are added.
+    tags-sorter: alpha
+    operations-sorter: alpha
 
 nawill:
   auth:
     jwt:
       secret: ${AUTH_JWT_SECRET}
       expiry-minutes: ${AUTH_JWT_EXPIRY_MINUTES:15}
+      refresh-expiry-days: ${AUTH_JWT_REFRESH_EXPIRY_DAYS:30}
     superadmin:
       email: ${AUTH_SUPERADMIN_EMAIL}
       password: ${AUTH_SUPERADMIN_PASSWORD}
@@ -72,6 +78,11 @@ nawill:
       base-dir: ${NAWILL_STORAGE_LOCAL_BASE_DIR:./.data/uploads}
   notifications:
     email-from: ${SMTP_FROM}
+  frontend:
+    # Base URL of napayment-fe, used to build absolute links sent outside the
+    # app (team-invite emails/inviteUrl) - a bare path like "/invite/<token>"
+    # is meaningless outside the browser session that generated it.
+    base-url: ${FRONTEND_BASEURL}
   paystack:
     base-url: https://api.paystack.co
     # Optional: unset in test (a fake gateway stands in) or if verification isn't needed yet.

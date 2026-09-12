@@ -8,6 +8,9 @@ import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import ng.com.nawill.pay.onboarding.business.Business;
 import ng.com.nawill.pay.onboarding.business.BusinessRepository;
 import org.slf4j.Logger;
@@ -30,12 +33,14 @@ public class KycSubmitService {
 
     private final BusinessRepository businessRepository;
     private final KycDocumentRepository kycDocumentRepository;
+    private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
 
     public KycSubmitService(BusinessRepository businessRepository, KycDocumentRepository kycDocumentRepository,
-                             CurrentUserResolver currentUserResolver) {
+                             SecurityAuditService securityAuditService, CurrentUserResolver currentUserResolver) {
         this.businessRepository = businessRepository;
         this.kycDocumentRepository = kycDocumentRepository;
+        this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -62,6 +67,8 @@ public class KycSubmitService {
         business.submitKycForReview();
         business = businessRepository.save(business);
         log.info("kyc submitted for review: businessId={}", currentUser.businessId());
+        securityAuditService.record(AuditEventType.KYC_SUBMITTED, AuditOutcome.SUCCESS, currentUser.userId(),
+                currentUser.businessId(), "All 4 documents present");
 
         return new KycSubmitResponse(business.getKycStatus(), business.getKycSubmittedAt());
     }

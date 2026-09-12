@@ -6,6 +6,9 @@ import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.logging.PiiMasker;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,14 +25,17 @@ public class OwnerIdentityService {
     private final OwnerIdentityRepository ownerIdentityRepository;
     private final IdentityVerificationGateway identityVerificationGateway;
     private final EncryptionService encryptionService;
+    private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
 
     public OwnerIdentityService(OwnerIdentityRepository ownerIdentityRepository,
                                  IdentityVerificationGateway identityVerificationGateway,
-                                 EncryptionService encryptionService, CurrentUserResolver currentUserResolver) {
+                                 EncryptionService encryptionService, SecurityAuditService securityAuditService,
+                                 CurrentUserResolver currentUserResolver) {
         this.ownerIdentityRepository = ownerIdentityRepository;
         this.identityVerificationGateway = identityVerificationGateway;
         this.encryptionService = encryptionService;
+        this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -51,6 +57,9 @@ public class OwnerIdentityService {
 
         log.info("owner identity saved: businessId={} type={} number={} verified={}",
                 currentUser.businessId(), type, PiiMasker.maskKeepLast4(number), result.verified());
+        securityAuditService.record(AuditEventType.OWNER_IDENTITY_SUBMITTED,
+                result.verified() ? AuditOutcome.SUCCESS : AuditOutcome.FAILURE, currentUser.userId(),
+                currentUser.businessId(), type + " " + PiiMasker.maskKeepLast4(number) + ", verified=" + result.verified());
 
         return toResponse(identity);
     }
