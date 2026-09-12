@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.auth;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
@@ -14,6 +16,7 @@ import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import ng.com.nawill.pay.onboarding.business.Business;
 import ng.com.nawill.pay.onboarding.business.BusinessRepository;
+import ng.com.nawill.pay.onboarding.email.EmailGateway;
 import ng.com.nawill.pay.onboarding.rbac.PermissionResolutionService;
 import ng.com.nawill.pay.onboarding.rbac.Role;
 import ng.com.nawill.pay.onboarding.rbac.RoleRepository;
@@ -29,6 +32,7 @@ import ng.com.nawill.pay.onboarding.user.UserType;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountProvisioningService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +64,9 @@ public class AuthService {
     private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
     private final TeamInvitationRepository teamInvitationRepository;
+    private final EmailGateway emailGateway;
+    private final String frontendBaseUrl;
+    private final PasswordHistoryService passwordHistoryService;
 
     public AuthService(UserRepository userRepository, BusinessRepository businessRepository,
                         RoleRepository roleRepository, UserRoleRepository userRoleRepository,
@@ -68,7 +75,9 @@ public class AuthService {
                         PasswordEncoder passwordEncoder, JwtService jwtService,
                         LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
                         RefreshTokenService refreshTokenService, SecurityAuditService securityAuditService,
-                        CurrentUserResolver currentUserResolver, TeamInvitationRepository teamInvitationRepository) {
+                        CurrentUserResolver currentUserResolver, TeamInvitationRepository teamInvitationRepository,
+                        EmailGateway emailGateway, @Value("${nawill.frontend.base-url}") String frontendBaseUrl,
+                        PasswordHistoryService passwordHistoryService) {
         this.userRepository = userRepository;
         this.businessRepository = businessRepository;
         this.roleRepository = roleRepository;
@@ -83,6 +92,10 @@ public class AuthService {
         this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
         this.teamInvitationRepository = teamInvitationRepository;
+        this.emailGateway = emailGateway;
+        this.frontendBaseUrl = frontendBaseUrl.endsWith("/")
+                ? frontendBaseUrl.substring(0, frontendBaseUrl.length() - 1) : frontendBaseUrl;
+        this.passwordHistoryService = passwordHistoryService;
     }
 
     public AuthResponse signup(SignupRequest request) {
@@ -113,6 +126,7 @@ public class AuthService {
         }
 
         assignDefaultRole(user, defaultRoleName);
+        passwordHistoryService.record(user.getId(), user.getPasswordHash());
         log.info("user signed up: userId={} businessSignup={}", user.getId(), request.isBusinessSignup());
         securityAuditService.record(AuditEventType.SIGNUP, AuditOutcome.SUCCESS, user.getId(), user.getBusinessId(),
                 user.getEmail(), request.isBusinessSignup() ? "Business signup" : "Individual signup");
@@ -150,6 +164,7 @@ public class AuthService {
 
         invitation.accept();
         teamInvitationRepository.save(invitation);
+        passwordHistoryService.record(user.getId(), user.getPasswordHash());
         log.info("user joined business via invite: userId={} businessId={} invitationId={}",
                 user.getId(), invitation.getBusinessId(), invitation.getId());
         securityAuditService.record(AuditEventType.SIGNUP_VIA_INVITE, AuditOutcome.SUCCESS, user.getId(),
@@ -199,12 +214,15 @@ public class AuthService {
 
     public ForgotPasswordResponse forgotPassword(String email) {
         Optional<User> user = userRepository.findByEmail(email);
-        String token = null;
         if (user.isPresent()) {
-            token = passwordResetService.issueToken(email);
+            String token = passwordResetService.issueToken(email);
             log.info("password reset token issued: userId={}", user.get().getId());
             securityAuditService.record(AuditEventType.PASSWORD_RESET_REQUESTED, AuditOutcome.SUCCESS,
                     user.get().getId(), user.get().getBusinessId(), email, null);
+            emailGateway.send(email, "Reset your Nawill Pay password",
+                    "We received a request to reset your Nawill Pay password. Click the link below to choose a "
+                            + "new one:\n\n" + resetUrl(email, token)
+                            + "\n\nIf you didn't request this, you can safely ignore this email.");
         } else {
             // No account exists for this email - the response deliberately doesn't
             // reveal that (doc 3 §2.1's anti-enumeration posture), but it's still
@@ -213,11 +231,19 @@ public class AuthService {
             securityAuditService.record(AuditEventType.PASSWORD_RESET_REQUESTED, AuditOutcome.FAILURE, null, null,
                     email, "No account with this email");
         }
-        return new ForgotPasswordResponse(
-                "If an account with that email exists, a password reset code has been issued.", token);
+        return new ForgotPasswordResponse("If an account with that email exists, a password reset link has been sent to it.");
+    }
+
+    /** Absolute link into napayment-fe - carries the code so the reset page doesn't need the user to retype it. */
+    private String resetUrl(String email, String token) {
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        return frontendBaseUrl + "/reset-password?email=" + encodedEmail + "&token=" + token;
     }
 
     public void resetPassword(ResetPasswordRequest request) {
+        if (!request.newPassword().equals(request.confirmNewPassword())) {
+            throw new BadRequestException("PASSWORD_MISMATCH", "New password and confirm new password do not match");
+        }
         boolean valid = passwordResetService.validateAndConsume(request.email(), request.token());
         if (!valid) {
             securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.FAILURE, null, null,
@@ -226,8 +252,15 @@ public class AuthService {
         }
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadRequestException("INVALID_RESET_TOKEN", "The reset code is invalid or has expired"));
+        if (passwordHistoryService.isReused(user.getId(), request.newPassword(), user.getPasswordHash())) {
+            securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.FAILURE, user.getId(),
+                    user.getBusinessId(), request.email(), "Rejected: matches a recently used password");
+            throw new BadRequestException("PASSWORD_REUSED",
+                    "You can't reuse one of your last 4 passwords. Choose a different password.");
+        }
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+        passwordHistoryService.record(user.getId(), user.getPasswordHash());
         loginAttemptService.clear(request.email());
         log.info("password reset: userId={}", user.getId());
         securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.SUCCESS, user.getId(),
@@ -258,6 +291,9 @@ public class AuthService {
     }
 
     public void changePassword(ChangePasswordRequest request) {
+        if (!request.newPassword().equals(request.confirmNewPassword())) {
+            throw new BadRequestException("PASSWORD_MISMATCH", "New password and confirm new password do not match");
+        }
         CurrentUser currentUser = currentUserResolver.requireCurrentUser();
         User user = userRepository.findById(currentUser.userId())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + currentUser.userId()));
@@ -266,8 +302,15 @@ public class AuthService {
                     user.getBusinessId(), "Current password did not match");
             throw new UnauthorizedException("INVALID_CREDENTIALS", "Current password is incorrect");
         }
+        if (passwordHistoryService.isReused(user.getId(), request.newPassword(), user.getPasswordHash())) {
+            securityAuditService.record(AuditEventType.PASSWORD_CHANGED, AuditOutcome.FAILURE, user.getId(),
+                    user.getBusinessId(), "Rejected: matches a recently used password");
+            throw new BadRequestException("PASSWORD_REUSED",
+                    "You can't reuse one of your last 4 passwords. Choose a different password.");
+        }
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+        passwordHistoryService.record(user.getId(), user.getPasswordHash());
         log.info("password changed: userId={}", user.getId());
         securityAuditService.record(AuditEventType.PASSWORD_CHANGED, AuditOutcome.SUCCESS, user.getId(),
                 user.getBusinessId(), null);

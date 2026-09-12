@@ -5,6 +5,7 @@ import ng.com.nawill.pay.common.validation.StrongPassword;
 
 public record ChangePasswordRequest(
         @NotBlank String currentPassword,
-        @NotBlank @StrongPassword String newPassword
+        @NotBlank @StrongPassword String newPassword,
+        @NotBlank String confirmNewPassword
 ) {
 }

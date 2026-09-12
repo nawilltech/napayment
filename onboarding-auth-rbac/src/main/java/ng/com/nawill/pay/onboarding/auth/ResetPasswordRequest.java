@@ -8,6 +8,7 @@ import ng.com.nawill.pay.common.validation.StrongPassword;
 public record ResetPasswordRequest(
         @NotBlank @Email String email,
         @NotBlank @Pattern(regexp = "\\d{6}", message = "token must be a 6-digit code") String token,
-        @NotBlank @StrongPassword String newPassword
+        @NotBlank @StrongPassword String newPassword,
+        @NotBlank String confirmNewPassword
 ) {
 }
