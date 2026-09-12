@@ -33,6 +33,17 @@ public class AuthController {
         return authService.login(request);
     }
 
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
+    }
+
+    @PostMapping("/logout")
+    public MessageResponse logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request);
+        return new MessageResponse("Logged out successfully.");
+    }
+
     @PostMapping("/forgot-password")
     public ForgotPasswordResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request.email());
