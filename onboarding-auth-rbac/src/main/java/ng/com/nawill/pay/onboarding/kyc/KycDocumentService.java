@@ -13,6 +13,9 @@ import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.common.storage.FileStorageGateway;
 import ng.com.nawill.pay.common.storage.LoadedFile;
 import ng.com.nawill.pay.common.storage.StoredFile;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,12 +33,14 @@ public class KycDocumentService {
 
     private final KycDocumentRepository kycDocumentRepository;
     private final FileStorageGateway fileStorageGateway;
+    private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
 
     public KycDocumentService(KycDocumentRepository kycDocumentRepository, FileStorageGateway fileStorageGateway,
-                               CurrentUserResolver currentUserResolver) {
+                               SecurityAuditService securityAuditService, CurrentUserResolver currentUserResolver) {
         this.kycDocumentRepository = kycDocumentRepository;
         this.fileStorageGateway = fileStorageGateway;
+        this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -71,6 +76,8 @@ public class KycDocumentService {
 
         log.info("kyc document uploaded: businessId={} type={} sizeBytes={}",
                 currentUser.businessId(), type, stored.sizeBytes());
+        securityAuditService.record(AuditEventType.KYC_DOCUMENT_UPLOADED, AuditOutcome.SUCCESS, currentUser.userId(),
+                currentUser.businessId(), type + " (" + stored.sizeBytes() + " bytes)");
         return document;
     }
 

@@ -2,12 +2,17 @@ package ng.com.nawill.pay.app.it;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Duration;
+import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import ng.com.nawill.pay.onboarding.auth.RefreshToken;
+import ng.com.nawill.pay.onboarding.auth.RefreshTokenRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -15,12 +20,13 @@ import org.springframework.http.ResponseEntity;
 
 /**
  * NFR-7: rotating, server-revocable refresh tokens (RefreshTokenService,
- * Redis-backed - no DB fallback, same posture as password-reset codes).
+ * Postgres-backed - source of truth, not Redis, so a session survives a
+ * cache restart and a compromised account leaves a permanent record).
  */
 class RefreshTokenIT extends AbstractIntegrationTest {
 
     @Autowired
-    private StringRedisTemplate redisTemplate;
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Test
     void refreshRotatesTokenAndTheOldOneNoLongerWorks() {
@@ -53,6 +59,12 @@ class RefreshTokenIT extends AbstractIntegrationTest {
 
         ResponseEntity<Map> secondTokenNowDead = refresh(secondToken);
         assertThat(secondTokenNowDead.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        // Permanent record survives the revocation, unlike the old Redis
+        // tombstone (self-deleted after a few minutes) - the whole point of
+        // moving this to Postgres.
+        RefreshToken persisted = refreshTokenRepository.findByTokenHash(sha256Hex(firstToken)).orElseThrow();
+        assertThat(persisted.getRevokedAt()).isNotNull();
     }
 
     @Test
@@ -69,16 +81,19 @@ class RefreshTokenIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void expiredTokenIsRejected() {
+    void expiredTokenIsRejected() throws Exception {
         Map<String, Object> signup = signupResponse();
         String refreshToken = (String) signup.get("refreshToken");
 
-        // Force-expire the Redis key directly rather than waiting out the
-        // real 30-day TTL.
-        String hash = sha256Hex(refreshToken);
-        Boolean expired = redisTemplate.expire("auth:refresh-token:" + hash, 1, TimeUnit.MILLISECONDS);
-        assertThat(expired).isTrue();
-        await(Duration.ofMillis(50));
+        // Force-expire the row directly rather than waiting out the real
+        // 30-day TTL - expiresAt has no application setter (only set once,
+        // at issuance), so this reaches into the field the same way a
+        // hand-written SQL UPDATE would in a real expiry scenario.
+        RefreshToken token = refreshTokenRepository.findByTokenHash(sha256Hex(refreshToken)).orElseThrow();
+        Field expiresAt = RefreshToken.class.getDeclaredField("expiresAt");
+        expiresAt.setAccessible(true);
+        expiresAt.set(token, Instant.now().minusSeconds(60));
+        refreshTokenRepository.save(token);
 
         ResponseEntity<Map> afterExpiry = refresh(refreshToken);
         assertThat(afterExpiry.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -100,19 +115,11 @@ class RefreshTokenIT extends AbstractIntegrationTest {
                 new HttpEntity<>(Map.of("refreshToken", refreshToken)), Map.class);
     }
 
-    private static void await(Duration duration) {
-        try {
-            Thread.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
     private static String sha256Hex(String value) {
         try {
-            var digest = java.security.MessageDigest.getInstance("SHA-256");
-            return java.util.HexFormat.of().formatHex(digest.digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException e) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
     }

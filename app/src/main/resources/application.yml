@@ -65,10 +65,6 @@ nawill:
       secret: ${AUTH_JWT_SECRET}
       expiry-minutes: ${AUTH_JWT_EXPIRY_MINUTES:15}
       refresh-expiry-days: ${AUTH_JWT_REFRESH_EXPIRY_DAYS:30}
-      # How long a rotated-out refresh token's Redis key is kept as a
-      # tombstone (see RefreshTokenService) purely to catch a near-immediate
-      # replay of it as reuse - not the token's own lifetime.
-      refresh-reuse-window-minutes: ${AUTH_JWT_REFRESH_REUSE_WINDOW_MINUTES:5}
     superadmin:
       email: ${AUTH_SUPERADMIN_EMAIL}
       password: ${AUTH_SUPERADMIN_PASSWORD}

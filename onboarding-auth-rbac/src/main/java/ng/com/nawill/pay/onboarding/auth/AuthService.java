@@ -3,11 +3,15 @@ package ng.com.nawill.pay.onboarding.auth;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import ng.com.nawill.pay.common.exception.AccountLockedException;
 import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.exception.UnauthorizedException;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import ng.com.nawill.pay.onboarding.business.Business;
 import ng.com.nawill.pay.onboarding.business.BusinessRepository;
 import ng.com.nawill.pay.onboarding.rbac.PermissionResolutionService;
@@ -53,6 +57,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
+    private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
     private final TeamInvitationRepository teamInvitationRepository;
 
@@ -62,8 +67,8 @@ public class AuthService {
                         VirtualAccountProvisioningService virtualAccountProvisioningService,
                         PasswordEncoder passwordEncoder, JwtService jwtService,
                         LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
-                        RefreshTokenService refreshTokenService, CurrentUserResolver currentUserResolver,
-                        TeamInvitationRepository teamInvitationRepository) {
+                        RefreshTokenService refreshTokenService, SecurityAuditService securityAuditService,
+                        CurrentUserResolver currentUserResolver, TeamInvitationRepository teamInvitationRepository) {
         this.userRepository = userRepository;
         this.businessRepository = businessRepository;
         this.roleRepository = roleRepository;
@@ -75,6 +80,7 @@ public class AuthService {
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.refreshTokenService = refreshTokenService;
+        this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
         this.teamInvitationRepository = teamInvitationRepository;
     }
@@ -108,6 +114,8 @@ public class AuthService {
 
         assignDefaultRole(user, defaultRoleName);
         log.info("user signed up: userId={} businessSignup={}", user.getId(), request.isBusinessSignup());
+        securityAuditService.record(AuditEventType.SIGNUP, AuditOutcome.SUCCESS, user.getId(), user.getBusinessId(),
+                user.getEmail(), request.isBusinessSignup() ? "Business signup" : "Individual signup");
 
         return issueTokenFor(user);
     }
@@ -144,6 +152,8 @@ public class AuthService {
         teamInvitationRepository.save(invitation);
         log.info("user joined business via invite: userId={} businessId={} invitationId={}",
                 user.getId(), invitation.getBusinessId(), invitation.getId());
+        securityAuditService.record(AuditEventType.SIGNUP_VIA_INVITE, AuditOutcome.SUCCESS, user.getId(),
+                invitation.getBusinessId(), user.getEmail(), "Joined via invitation " + invitation.getId());
 
         return issueTokenFor(user);
     }
@@ -153,6 +163,8 @@ public class AuthService {
 
         Optional<Duration> locked = loginAttemptService.lockedRemaining(email);
         if (locked.isPresent()) {
+            securityAuditService.record(AuditEventType.LOGIN, AuditOutcome.FAILURE, null, null, email,
+                    "Attempted login while account locked");
             throw new AccountLockedException(lockedMessage(locked.get()));
         }
 
@@ -162,12 +174,17 @@ public class AuthService {
 
         if (!credentialsValid) {
             int attempts = loginAttemptService.recordFailure(email);
+            UUID knownUserId = maybeUser.map(User::getId).orElse(null);
             if (attempts >= loginAttemptService.maxAttempts()) {
                 loginAttemptService.lock(email);
                 log.warn("account locked after {} failed login attempts: email={}", attempts, email);
+                securityAuditService.record(AuditEventType.ACCOUNT_LOCKED, AuditOutcome.FAILURE, knownUserId, null,
+                        email, attempts + " failed login attempts");
                 throw new AccountLockedException(lockedMessage(loginAttemptService.lockoutDuration()));
             }
             log.warn("failed login attempt {}/{}", attempts, loginAttemptService.maxAttempts());
+            securityAuditService.record(AuditEventType.LOGIN, AuditOutcome.FAILURE, knownUserId, null, email,
+                    "Invalid credentials (attempt " + attempts + "/" + loginAttemptService.maxAttempts() + ")");
             throw new UnauthorizedException("INVALID_CREDENTIALS",
                     "Invalid email or password (attempt " + attempts + "/" + loginAttemptService.maxAttempts() + ")");
         }
@@ -175,6 +192,8 @@ public class AuthService {
         loginAttemptService.clear(email);
         User user = maybeUser.get();
         log.info("user logged in: userId={}", user.getId());
+        securityAuditService.record(AuditEventType.LOGIN, AuditOutcome.SUCCESS, user.getId(), user.getBusinessId(),
+                email, null);
         return issueTokenFor(user);
     }
 
@@ -184,6 +203,15 @@ public class AuthService {
         if (user.isPresent()) {
             token = passwordResetService.issueToken(email);
             log.info("password reset token issued: userId={}", user.get().getId());
+            securityAuditService.record(AuditEventType.PASSWORD_RESET_REQUESTED, AuditOutcome.SUCCESS,
+                    user.get().getId(), user.get().getBusinessId(), email, null);
+        } else {
+            // No account exists for this email - the response deliberately doesn't
+            // reveal that (doc 3 §2.1's anti-enumeration posture), but it's still
+            // worth a durable record: repeated requests against unknown emails is
+            // an enumeration-attempt signal for security monitoring.
+            securityAuditService.record(AuditEventType.PASSWORD_RESET_REQUESTED, AuditOutcome.FAILURE, null, null,
+                    email, "No account with this email");
         }
         return new ForgotPasswordResponse(
                 "If an account with that email exists, a password reset code has been issued.", token);
@@ -192,6 +220,8 @@ public class AuthService {
     public void resetPassword(ResetPasswordRequest request) {
         boolean valid = passwordResetService.validateAndConsume(request.email(), request.token());
         if (!valid) {
+            securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.FAILURE, null, null,
+                    request.email(), "Invalid or expired reset code");
             throw new BadRequestException("INVALID_RESET_TOKEN", "The reset code is invalid or has expired");
         }
         User user = userRepository.findByEmail(request.email())
@@ -200,6 +230,8 @@ public class AuthService {
         userRepository.save(user);
         loginAttemptService.clear(request.email());
         log.info("password reset: userId={}", user.getId());
+        securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.SUCCESS, user.getId(),
+                user.getBusinessId(), request.email(), null);
     }
 
     /**
@@ -230,11 +262,15 @@ public class AuthService {
         User user = userRepository.findById(currentUser.userId())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + currentUser.userId()));
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            securityAuditService.record(AuditEventType.PASSWORD_CHANGED, AuditOutcome.FAILURE, user.getId(),
+                    user.getBusinessId(), "Current password did not match");
             throw new UnauthorizedException("INVALID_CREDENTIALS", "Current password is incorrect");
         }
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
         log.info("password changed: userId={}", user.getId());
+        securityAuditService.record(AuditEventType.PASSWORD_CHANGED, AuditOutcome.SUCCESS, user.getId(),
+                user.getBusinessId(), null);
     }
 
     private String lockedMessage(Duration remaining) {

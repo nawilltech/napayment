@@ -5,103 +5,107 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.exception.UnauthorizedException;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * NFR-7: rotating, server-revocable refresh tokens. Redis-only, no DB
- * fallback - same posture as {@link PasswordResetService}: a refresh token
- * is exactly as security-critical as a password-reset code (leak either and
- * an attacker can mint themselves a session), so a Redis outage surfaces as
- * a failure here rather than degrading like {@link LoginAttemptService}'s
- * lockout counters do.
+ * NFR-7: rotating, server-revocable refresh tokens. Postgres is the source
+ * of truth, not Redis - a 30-day session token needs to survive a Redis
+ * restart/eviction the way a 15-minute lockout counter doesn't, and a
+ * compromised-account investigation needs a permanent record of every token
+ * issued/revoked for a user, not a tombstone that self-deletes in minutes.
  * <p>
  * Single-use - every {@link #rotate} call revokes the presented token and
- * issues a fresh one (OWASP's recommended refresh-token rotation). The
- * value stored under a token's key is either the owning userId (active) or
- * a short-lived {@code REVOKED:<userId>} tombstone (rotated-out, kept just
- * long enough to catch a near-simultaneous replay) - a plain delete-on-
- * rotate can't distinguish "never existed" from "already used," which is
- * exactly the distinction reuse detection needs. A per-user Redis SET of
- * active token hashes backs "revoke everything for this user" (reuse
- * detected, or a future "log out everywhere").
+ * issues a fresh one (OWASP's recommended refresh-token rotation). A
+ * rotated-out row is marked revoked, never deleted, so presenting it again
+ * is recognizable as reuse (vs. never having existed) - the row itself
+ * carries the {@code replacedByTokenId} chain, giving a permanent audit
+ * trail with no separate bookkeeping needed (unlike the Redis version's
+ * per-user SET).
  */
 @Service
+@Transactional
 public class RefreshTokenService {
 
     private static final Logger log = LoggerFactory.getLogger(RefreshTokenService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int TOKEN_BYTES = 32;
-    private static final String REVOKED_PREFIX = "REVOKED:";
 
-    private final StringRedisTemplate redisTemplate;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final SecurityAuditService securityAuditService;
     private final Duration refreshTtl;
-    private final Duration reuseDetectionWindow;
 
-    public RefreshTokenService(StringRedisTemplate redisTemplate,
-                                @Value("${nawill.auth.jwt.refresh-expiry-days:30}") long refreshExpiryDays,
-                                @Value("${nawill.auth.jwt.refresh-reuse-window-minutes:5}") long reuseWindowMinutes) {
-        this.redisTemplate = redisTemplate;
+    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
+                                SecurityAuditService securityAuditService,
+                                @Value("${nawill.auth.jwt.refresh-expiry-days:30}") long refreshExpiryDays) {
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.securityAuditService = securityAuditService;
         this.refreshTtl = Duration.ofDays(refreshExpiryDays);
-        this.reuseDetectionWindow = Duration.ofMinutes(reuseWindowMinutes);
     }
 
     public String issue(UUID userId) {
         String rawToken = randomToken();
-        String hash = hash(rawToken);
-        redisTemplate.opsForValue().set(tokenKey(hash), userId.toString(), refreshTtl);
-        redisTemplate.opsForSet().add(userSetKey(userId), hash);
+        RefreshToken token = new RefreshToken(userId, hash(rawToken), Instant.now().plus(refreshTtl));
+        refreshTokenRepository.save(token);
         return rawToken;
     }
 
     public RotationResult rotate(String rawToken) {
-        String hash = hash(rawToken);
-        String value = redisTemplate.opsForValue().get(tokenKey(hash));
+        RefreshToken current = refreshTokenRepository.findByTokenHash(hash(rawToken))
+                .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN", "Invalid refresh token"));
 
-        if (value == null) {
-            throw new UnauthorizedException("INVALID_REFRESH_TOKEN", "Invalid refresh token");
-        }
-        if (value.startsWith(REVOKED_PREFIX)) {
-            UUID userId = UUID.fromString(value.substring(REVOKED_PREFIX.length()));
-            log.warn("reused refresh token detected, revoking all active tokens: userId={}", userId);
-            revokeAllActive(userId);
+        if (current.getRevokedAt() != null) {
+            log.warn("reused refresh token detected, revoking all active tokens: userId={} tokenId={}",
+                    current.getUserId(), current.getId());
+            revokeAllActive(current.getUserId());
+            securityAuditService.record(AuditEventType.REFRESH_TOKEN_REUSE_DETECTED, AuditOutcome.FAILURE,
+                    current.getUserId(), null, "Reused an already-rotated refresh token; all active tokens revoked");
             throw new UnauthorizedException("REFRESH_TOKEN_REUSED", "This refresh token has already been used");
         }
+        if (current.isExpired()) {
+            throw new UnauthorizedException("REFRESH_TOKEN_EXPIRED", "Refresh token has expired");
+        }
 
-        UUID userId = UUID.fromString(value);
-        redisTemplate.opsForValue().set(tokenKey(hash), REVOKED_PREFIX + userId, reuseDetectionWindow);
-        redisTemplate.opsForSet().remove(userSetKey(userId), hash);
+        String newRawToken = randomToken();
+        RefreshToken next = new RefreshToken(current.getUserId(), hash(newRawToken), Instant.now().plus(refreshTtl));
+        next = refreshTokenRepository.save(next);
+        current.revoke(next.getId());
+        refreshTokenRepository.save(current);
 
-        String newRawToken = issue(userId);
-        log.info("refresh token rotated: userId={}", userId);
-        return new RotationResult(userId, newRawToken);
+        log.info("refresh token rotated: userId={} newTokenId={}", current.getUserId(), next.getId());
+        securityAuditService.record(AuditEventType.REFRESH_TOKEN_ROTATED, AuditOutcome.SUCCESS,
+                current.getUserId(), null, null);
+        return new RotationResult(current.getUserId(), newRawToken);
     }
 
     public void revoke(String rawToken) {
-        String hash = hash(rawToken);
-        String value = redisTemplate.opsForValue().get(tokenKey(hash));
-        if (value != null && !value.startsWith(REVOKED_PREFIX)) {
-            redisTemplate.delete(tokenKey(hash));
-            redisTemplate.opsForSet().remove(userSetKey(UUID.fromString(value)), hash);
-            log.info("refresh token revoked (logout): userId={}", value);
-        }
+        refreshTokenRepository.findByTokenHash(hash(rawToken)).ifPresent(token -> {
+            if (token.getRevokedAt() == null) {
+                token.revoke(null);
+                refreshTokenRepository.save(token);
+                log.info("refresh token revoked (logout): userId={} tokenId={}", token.getUserId(), token.getId());
+                securityAuditService.record(AuditEventType.REFRESH_TOKEN_REVOKED, AuditOutcome.SUCCESS,
+                        token.getUserId(), null, "Logout");
+            }
+        });
     }
 
     private void revokeAllActive(UUID userId) {
-        String userSetKey = userSetKey(userId);
-        Set<String> hashes = redisTemplate.opsForSet().members(userSetKey);
-        if (hashes != null) {
-            hashes.forEach(hash -> redisTemplate.delete(tokenKey(hash)));
-        }
-        redisTemplate.delete(userSetKey);
+        List<RefreshToken> active = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(userId);
+        active.forEach(token -> token.revoke(null));
+        refreshTokenRepository.saveAll(active);
     }
 
     private String randomToken() {
@@ -117,14 +121,6 @@ public class RefreshTokenService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
-    }
-
-    private String tokenKey(String hash) {
-        return AuthRedisConstants.REFRESH_TOKEN_PREFIX + hash;
-    }
-
-    private String userSetKey(UUID userId) {
-        return AuthRedisConstants.REFRESH_TOKEN_USER_SET_PREFIX + userId;
     }
 
     public record RotationResult(UUID userId, String rawToken) {
