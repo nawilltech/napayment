@@ -97,8 +97,9 @@ public abstract class AbstractIntegrationTest {
                 "firstName", firstName,
                 "lastName", lastName,
                 "email", firstName.toLowerCase() + "-" + suffix + "@example.com",
-                "phoneNo", String.format("0801%06d", Math.abs(suffix.hashCode()) % 1_000_000),
-                "password", password
+                "phoneNo", String.format("0801%07d", Math.abs(suffix.hashCode()) % 10_000_000),
+                "password", password,
+                "confirmPassword", password
         );
     }
 
@@ -114,8 +115,9 @@ public abstract class AbstractIntegrationTest {
                 "firstName", firstName,
                 "lastName", lastName,
                 "email", firstName.toLowerCase() + "-biz-" + suffix + "@example.com",
-                "phoneNo", String.format("0802%06d", Math.abs(suffix.hashCode()) % 1_000_000),
+                "phoneNo", String.format("0802%07d", Math.abs(suffix.hashCode()) % 10_000_000),
                 "password", password,
+                "confirmPassword", password,
                 "businessName", firstName + " Ventures " + suffix,
                 "cacNumber", "RC" + suffix
         );

@@ -52,6 +52,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
+    private final RefreshTokenService refreshTokenService;
     private final CurrentUserResolver currentUserResolver;
     private final TeamInvitationRepository teamInvitationRepository;
 
@@ -61,7 +62,8 @@ public class AuthService {
                         VirtualAccountProvisioningService virtualAccountProvisioningService,
                         PasswordEncoder passwordEncoder, JwtService jwtService,
                         LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
-                        CurrentUserResolver currentUserResolver, TeamInvitationRepository teamInvitationRepository) {
+                        RefreshTokenService refreshTokenService, CurrentUserResolver currentUserResolver,
+                        TeamInvitationRepository teamInvitationRepository) {
         this.userRepository = userRepository;
         this.businessRepository = businessRepository;
         this.roleRepository = roleRepository;
@@ -72,11 +74,15 @@ public class AuthService {
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
+        this.refreshTokenService = refreshTokenService;
         this.currentUserResolver = currentUserResolver;
         this.teamInvitationRepository = teamInvitationRepository;
     }
 
     public AuthResponse signup(SignupRequest request) {
+        if (!request.password().equals(request.confirmPassword())) {
+            throw new BadRequestException("PASSWORD_MISMATCH", "Password and confirm password do not match");
+        }
         if (userRepository.existsByEmail(request.email())) {
             throw new BadRequestException("EMAIL_TAKEN", "An account with this email already exists");
         }
@@ -196,6 +202,29 @@ public class AuthService {
         log.info("password reset: userId={}", user.getId());
     }
 
+    /**
+     * Rotates the refresh token and issues a fresh access token. Permissions
+     * are re-resolved from scratch rather than trusted from any prior state -
+     * a role/permission change since the last login must take effect the
+     * moment the client refreshes, not just on the next full re-login.
+     */
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(request.refreshToken());
+        User user = userRepository.findById(rotation.userId())
+                .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN", "Invalid refresh token"));
+
+        Set<String> permissions = permissionResolutionService.resolveFor(user.getId());
+        String accessToken = jwtService.issueAccessToken(user.getId(), user.getBusinessId(),
+                user.getUserType().name(), permissions);
+        log.info("access token refreshed: userId={}", user.getId());
+        return AuthResponse.bearer(accessToken, rotation.rawToken(), jwtService.expiresInSeconds(),
+                user.getId(), user.getBusinessId());
+    }
+
+    public void logout(RefreshTokenRequest request) {
+        refreshTokenService.revoke(request.refreshToken());
+    }
+
     public void changePassword(ChangePasswordRequest request) {
         CurrentUser currentUser = currentUserResolver.requireCurrentUser();
         User user = userRepository.findById(currentUser.userId())
@@ -221,8 +250,10 @@ public class AuthService {
 
     private AuthResponse issueTokenFor(User user) {
         Set<String> permissions = permissionResolutionService.resolveFor(user.getId());
-        String token = jwtService.issueAccessToken(user.getId(), user.getBusinessId(),
+        String accessToken = jwtService.issueAccessToken(user.getId(), user.getBusinessId(),
                 user.getUserType().name(), permissions);
-        return AuthResponse.bearer(token, jwtService.expiresInSeconds(), user.getId(), user.getBusinessId());
+        String refreshToken = refreshTokenService.issue(user.getId());
+        return AuthResponse.bearer(accessToken, refreshToken, jwtService.expiresInSeconds(),
+                user.getId(), user.getBusinessId());
     }
 }

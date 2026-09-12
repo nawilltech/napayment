@@ -32,6 +32,7 @@
         <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
         <spring-dotenv.version>4.0.0</spring-dotenv.version>
+        <libphonenumber.version>9.0.39</libphonenumber.version>
     </properties>
 
     <dependencyManagement>
@@ -87,6 +88,11 @@
                 <groupId>me.paulschwarz</groupId>
                 <artifactId>spring-dotenv</artifactId>
                 <version>${spring-dotenv.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.googlecode.libphonenumber</groupId>
+                <artifactId>libphonenumber</artifactId>
+                <version>${libphonenumber.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

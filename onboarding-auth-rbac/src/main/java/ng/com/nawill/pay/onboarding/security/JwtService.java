@@ -18,9 +18,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Issues short-lived HS256 access tokens (doc 3 §2.1). TODO(NFR-7/doc 3 §2.1):
- * rotating, server-revocable refresh tokens are out of this session's scope -
- * MVP v0.1 is access-token-only.
+ * Issues short-lived HS256 access tokens (doc 3 §2.1). Rotating,
+ * server-revocable refresh tokens (NFR-7) live separately in
+ * {@link ng.com.nawill.pay.onboarding.auth.RefreshTokenService} - this
+ * class only ever signs the short-lived access token itself.
  */
 @Service
 public class JwtService {
