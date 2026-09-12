@@ -5,6 +5,9 @@ import java.util.UUID;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import ng.com.nawill.pay.onboarding.email.EmailGateway;
 import ng.com.nawill.pay.onboarding.rbac.Permission;
 import ng.com.nawill.pay.onboarding.rbac.PermissionRepository;
@@ -30,19 +33,21 @@ public class TeamInvitationService {
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final EmailGateway emailGateway;
+    private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
     private final String frontendBaseUrl;
 
     public TeamInvitationService(TeamInvitationRepository teamInvitationRepository, RoleRepository roleRepository,
                                   PermissionRepository permissionRepository,
                                   RolePermissionRepository rolePermissionRepository, EmailGateway emailGateway,
-                                  CurrentUserResolver currentUserResolver,
+                                  SecurityAuditService securityAuditService, CurrentUserResolver currentUserResolver,
                                   @Value("${nawill.frontend.base-url}") String frontendBaseUrl) {
         this.teamInvitationRepository = teamInvitationRepository;
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.emailGateway = emailGateway;
+        this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
         this.frontendBaseUrl = frontendBaseUrl.endsWith("/")
                 ? frontendBaseUrl.substring(0, frontendBaseUrl.length() - 1) : frontendBaseUrl;
@@ -57,6 +62,9 @@ public class TeamInvitationService {
 
         log.info("team invitation created: invitationId={} businessId={} roleTemplate={}",
                 invitation.getId(), currentUser.businessId(), request.roleTemplate());
+        securityAuditService.record(AuditEventType.TEAM_INVITATION_CREATED, AuditOutcome.SUCCESS,
+                currentUser.userId(), currentUser.businessId(), request.email(),
+                "Invited as " + request.roleTemplate().roleName());
         emailGateway.send(request.email(), "You've been invited to join Nawill Pay",
                 "You've been invited to join a business on Nawill Pay as " + request.roleTemplate().roleName()
                         + ". Accept your invite: " + inviteUrl(invitation)
@@ -82,6 +90,8 @@ public class TeamInvitationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found: " + invitationId));
         invitation.revoke();
         teamInvitationRepository.save(invitation);
+        securityAuditService.record(AuditEventType.TEAM_INVITATION_REVOKED, AuditOutcome.SUCCESS,
+                currentUser.userId(), currentUser.businessId(), invitation.getEmail(), null);
     }
 
     /**

@@ -4,6 +4,9 @@ import ng.com.nawill.pay.common.exception.BadRequestException;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.onboarding.audit.AuditEventType;
+import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import ng.com.nawill.pay.referencedata.repository.AdminDivisionRepository;
 import ng.com.nawill.pay.referencedata.repository.CountryRepository;
 import org.springframework.stereotype.Service;
@@ -18,15 +21,17 @@ public class BusinessKycService {
     private final CountryRepository countryRepository;
     private final AdminDivisionRepository adminDivisionRepository;
     private final CacLookupGateway cacLookupGateway;
+    private final SecurityAuditService securityAuditService;
     private final CurrentUserResolver currentUserResolver;
 
     public BusinessKycService(BusinessRepository businessRepository, CountryRepository countryRepository,
                                AdminDivisionRepository adminDivisionRepository, CacLookupGateway cacLookupGateway,
-                               CurrentUserResolver currentUserResolver) {
+                               SecurityAuditService securityAuditService, CurrentUserResolver currentUserResolver) {
         this.businessRepository = businessRepository;
         this.countryRepository = countryRepository;
         this.adminDivisionRepository = adminDivisionRepository;
         this.cacLookupGateway = cacLookupGateway;
+        this.securityAuditService = securityAuditService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -41,7 +46,13 @@ public class BusinessKycService {
         CacLookupResult cacLookupResult = cacLookupGateway.lookup(request.cacNumber(), request.registeredName());
         business.updateKycDetails(request.registeredName(), request.cacNumber(), request.businessType(),
                 request.industry(), request.countryId(), request.stateId(), request.addressLine(), cacLookupResult);
-        return businessRepository.save(business);
+        business = businessRepository.save(business);
+
+        CurrentUser currentUser = currentUserResolver.requireBusinessScope();
+        securityAuditService.record(AuditEventType.BUSINESS_KYC_DETAILS_UPDATED, AuditOutcome.SUCCESS,
+                currentUser.userId(), business.getId(),
+                "CAC " + (cacLookupResult.verified() ? "verified" : "unverified") + " via " + cacLookupResult.source());
+        return business;
     }
 
     @Transactional(readOnly = true)
