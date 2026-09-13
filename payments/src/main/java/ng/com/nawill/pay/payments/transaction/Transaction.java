@@ -10,6 +10,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigInteger;
+import java.util.UUID;
 import ng.com.nawill.pay.common.entity.BaseEntity;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
@@ -21,6 +22,14 @@ import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
  * §1.2). recipientAccountId (external settlement) is deliberately not
  * modelled yet - TODO(FR-2): split settlement to SettlementAccount/BankAccount
  * is v0.2 scope; MVP credits/debits the virtual account directly.
+ * <p>
+ * {@code paymentProcessor} is nullable: a peer-to-peer transfer
+ * (FR-Auth-1, see {@code payments.transfer}) touches no external processor
+ * at all, so null is the honest value rather than a seeded fake "internal"
+ * processor row (doc 2 §7 ADR-12). {@code transferGroupId} /
+ * {@code counterpartyAccountId} are populated only on transfer-sourced rows -
+ * a transfer produces exactly two of these (a DEBIT and a CREDIT) sharing one
+ * {@code transferGroupId}, each naming the other side as its counterparty.
  */
 @Entity
 @Table(name = "transactions")
@@ -35,8 +44,8 @@ public class Transaction extends BaseEntity {
     @Column(name = "idempotency_key", nullable = false, unique = true, length = 128)
     private String idempotencyKey;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "payment_processor_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_processor_id")
     private PaymentProcessor paymentProcessor;
 
     @Enumerated(EnumType.STRING)
@@ -54,6 +63,12 @@ public class Transaction extends BaseEntity {
     @JoinColumn(name = "virtual_account_id", nullable = false)
     private VirtualAccount virtualAccount;
 
+    @Column(name = "transfer_group_id")
+    private UUID transferGroupId;
+
+    @Column(name = "counterparty_account_id")
+    private UUID counterpartyAccountId;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -69,6 +84,18 @@ public class Transaction extends BaseEntity {
         this.transactionType = transactionType;
         this.sessionId = sessionId;
         this.virtualAccount = virtualAccount;
+    }
+
+    /** FR-Auth-1: one leg of a peer-to-peer transfer - no external processor involved. */
+    public Transaction(BigInteger amount, String idempotencyKey, TransactionType transactionType, String sessionId,
+                        VirtualAccount virtualAccount, UUID transferGroupId, UUID counterpartyAccountId) {
+        this.amount = amount;
+        this.idempotencyKey = idempotencyKey;
+        this.transactionType = transactionType;
+        this.sessionId = sessionId;
+        this.virtualAccount = virtualAccount;
+        this.transferGroupId = transferGroupId;
+        this.counterpartyAccountId = counterpartyAccountId;
     }
 
     public BigInteger getAmount() {
@@ -101,6 +128,14 @@ public class Transaction extends BaseEntity {
 
     public VirtualAccount getVirtualAccount() {
         return virtualAccount;
+    }
+
+    public UUID getTransferGroupId() {
+        return transferGroupId;
+    }
+
+    public UUID getCounterpartyAccountId() {
+        return counterpartyAccountId;
     }
 
     public Long getVersion() {
