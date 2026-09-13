@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 import ng.com.nawill.pay.common.entity.BaseEntity;
@@ -38,6 +39,13 @@ public class User extends BaseEntity {
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
+
+    /** FR-Auth-2: hashed the same way as {@code passwordHash}, never reversible. Null until the user sets one. */
+    @Column(name = "pin_hash")
+    private String pinHash;
+
+    @Column(name = "pin_set_at")
+    private Instant pinSetAt;
 
     @Column(name = "is_verified", nullable = false)
     private boolean verified = false;
@@ -95,6 +103,19 @@ public class User extends BaseEntity {
 
     public void updatePasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getPinHash() {
+        return pinHash;
+    }
+
+    public boolean hasPinSet() {
+        return pinHash != null;
+    }
+
+    public void updatePinHash(String pinHash) {
+        this.pinHash = pinHash;
+        this.pinSetAt = Instant.now();
     }
 
     public boolean isVerified() {

@@ -14,6 +14,15 @@ module's collect/withdraw endpoints.
 - `AuthController` / `AuthService` — signup, login, forgot/reset/change password
 - `JwtService` — issues HS256 access tokens (`security/JwtService.java`)
 - `LoginAttemptService`, `PasswordResetService` — lockout and reset-token flows
+- `TransactionPinService` (FR-Auth-2) — sets/changes the transaction PIN
+  (stored as `User.pinHash`, hashed the same way as the password) and
+  implements `payments.transfer.TransactionPinGateway` so
+  `TransferService` can verify one without this module's internals
+  leaking across the boundary (doc 2 §7 ADR-12); `TransactionPinAttemptService`
+  — its own, stricter Redis lockout, separate from `LoginAttemptService`
+  (doc 2 §7 ADR-15)
+- `user/UserRecipientDirectory` — implements `payments.transfer.RecipientDirectory`,
+  resolving a transfer recipient's phone number/name from `UserRepository`
 
 **Users / Business**
 - `user/User.java`, `user/UserType.java` (`USER` / `SUPERADMIN`)
@@ -45,6 +54,7 @@ module's collect/withdraw endpoints.
 | POST | `/api/v1/auth/forgot-password` | none | Start a password reset |
 | POST | `/api/v1/auth/reset-password` | none | Complete a password reset |
 | POST | `/api/v1/auth/change-password` | none (authenticated) | Change password for the current session |
+| POST | `/api/v1/auth/transaction-pin` | none (authenticated) | Set or change the 4-digit transaction PIN (requires current password; changing an existing PIN also requires the current PIN) |
 | POST | `/api/v1/roles` | `roles:manage` | Create a business-scoped custom role |
 | GET | `/api/v1/roles` | `roles:manage` | List roles for the caller's business |
 | POST | `/api/v1/api-keys` | `apikeys:manage` | Issue the business's API key pair (fails if one is already active) |
@@ -141,11 +151,23 @@ user/role.
   explicitly filters `findByPublicKey(...)` results to `status == ACTIVE`.
 - The IP whitelist is opt-in per key: an empty whitelist means *no*
   IP restriction is enforced, not that all IPs are blocked.
+- `TransactionPinService.verify()` is called from `payments` (via the
+  `TransactionPinGateway` interface `payments` defines) but *implemented*
+  here — this module depends on `payments`, so it's the one that can
+  compile against payments' interface; payments never depends on this
+  module (doc 2 §7 ADR-12). The same applies to `UserRecipientDirectory`.
+- A wrong transaction PIN never locks login, and a login-locked account can
+  still be PIN-verified for a transfer — `TransactionPinAttemptService`
+  and `LoginAttemptService` are two entirely separate Redis-backed
+  counters with different key prefixes and different thresholds
+  (doc 2 §7 ADR-15).
 
 ## Depends on / depended on by
 
 Depends on `common-core` and `payments` (for `VirtualAccountProvisioningService`,
 called from `AuthService.signup` to auto-provision a virtual account on
-signup) and `reference-data` transitively — matches the README's stated
-build order (`common-core → reference-data → payments → onboarding-auth-rbac → app`).
-`app` depends on this module to compose the full application.
+signup, and — new — for the `RecipientDirectory`/`TransactionPinGateway`
+interfaces this module implements, doc 2 §7 ADR-12) and `reference-data`
+transitively — matches the README's stated build order (`common-core →
+reference-data → payments → onboarding-auth-rbac → app`). `app` depends on
+this module to compose the full application.

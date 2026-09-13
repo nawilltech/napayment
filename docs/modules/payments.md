@@ -78,6 +78,15 @@ scheduled components at all yet).
 shared by `VirtualAccount` and `DynamicVirtualAccount` — the one place
 that algorithm lives).
 
+**transfer** (new, FR-Auth-1/FR-Auth-2) — `TransferService` (wallet-to-wallet
+transfer between two `VirtualAccount`s; deliberately not routed through
+`TransactionService.process()` — see doc 2 §7 ADR-13); `TransferController`
+(`GET /resolve` preview + `POST` create, both `transfers:create`);
+`RecipientDirectory` / `TransactionPinGateway` (interfaces *this* module
+defines and depends on, implemented in `onboarding-auth-rbac` — doc 2 §7
+ADR-12's cross-module gateway pattern; payments itself has no compile-time
+dependency on either implementation).
+
 ## Endpoints
 
 | Method & path | Permission | Purpose |
@@ -106,6 +115,8 @@ that algorithm lives).
 | `POST /api/v1/temporary-accounts` | `temporaryaccounts:manage` | Mint a dynamic account |
 | `GET /api/v1/temporary-accounts` | `temporaryaccounts:manage` | List |
 | `POST /api/v1/temporary-accounts/{accountNumber}/simulate-deposit` | `temporaryaccounts:manage` | Sandbox deposit simulation |
+| `GET /api/v1/transfers/resolve?identifier=` | `transfers:create` | Preview the recipient (masked name) before sending |
+| `POST /api/v1/transfers` | `transfers:create` | Peer-to-peer transfer (`@Idempotent`) — PIN-gated, see `onboarding-auth-rbac`'s `/auth/transaction-pin` |
 
 `collection-account:manage` is assigned to no seeded role (see
 `V0015`/`V0024` in app's migrations) — only `PermissionChecker`'s
@@ -160,6 +171,14 @@ mechanism itself.
   `autoSettleIfEnabled` inside the same transaction as the triggering
   credit, a settlement failure must roll back only the settlement, not the
   credit. Keep this propagation if you touch that path.
+- **A new feature needing something from another module's domain**: define
+  the interface here, in this module's own vocabulary (see
+  `RecipientDirectory`/`TransactionPinGateway`), even if the natural
+  implementer is a module this one doesn't depend on. Let the *other*
+  module implement it — that direction always compiles, since
+  `onboarding-auth-rbac` already depends on `payments` — and Spring's
+  whole-application component scan wires the two together at runtime
+  (doc 2 §7 ADR-12).
 
 ## Gotchas / non-obvious behavior
 
@@ -183,6 +202,19 @@ mechanism itself.
 - `VirtualAccountProvisioningService.save()` retries on a unique-constraint
   collision by regenerating the account number (up to 5 attempts) rather
   than failing signup outright on a rare random collision.
+- `Transaction.paymentProcessor` is nullable — null specifically means "a
+  peer-to-peer transfer, no external processor involved" (doc 2 §7
+  ADR-13). `TransactionResponse.from()` guards against this with a null
+  check; don't assume every `Transaction` row has one.
+- A transfer's two rows are linked by `transferGroupId`, not a foreign key
+  to each other — `counterpartyAccountId` on each row names the *other*
+  side directly, so either party's own transaction history can display the
+  link without a join.
+- Peer-to-peer transfer deliberately never touches `CollectionAccount` —
+  see ADR-13. Don't route a new balance-mutating feature through
+  `TransactionService.process()` (or copy its `mirrorOnCollectionAccount`
+  call) unless the money genuinely crosses the real pooled bank account's
+  boundary.
 
 ## Depends on / depended on by
 

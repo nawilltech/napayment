@@ -13,6 +13,8 @@ public record TransactionResponse(
         String sessionId,
         UUID virtualAccountId,
         UUID paymentProcessorId,
+        UUID transferGroupId,
+        UUID counterpartyAccountId,
         Instant createdAt
 ) {
 
@@ -25,7 +27,9 @@ public record TransactionResponse(
                 transaction.getTransactionType(),
                 transaction.getSessionId(),
                 transaction.getVirtualAccount().getId(),
-                transaction.getPaymentProcessor().getId(),
+                transaction.getPaymentProcessor() == null ? null : transaction.getPaymentProcessor().getId(),
+                transaction.getTransferGroupId(),
+                transaction.getCounterpartyAccountId(),
                 transaction.getCreatedAt());
     }
 }
