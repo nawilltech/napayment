@@ -22,8 +22,21 @@ jobs:
 
       # Testcontainers (Postgres + Redis) spin up their own containers via
       # the Docker daemon already available on GitHub-hosted runners - no
-      # separate `services:` block needed.
+      # separate `services:` block needed. DB/Redis/JWT/superadmin creds are
+      # supplied dynamically by AbstractIntegrationTest's
+      # @DynamicPropertySource; the env vars below are for properties with
+      # no default and nothing else standing in for them at test time
+      # (NAWILL_ENCRYPTION_KEY must still be a valid base64 32-byte AES key
+      # for EncryptionService's bean to construct).
       - name: Build and verify (unit + integration tests)
+        env:
+          NAWILL_ENCRYPTION_KEY: y6eilK3Ez1Rzj2S3acTp1aqo/40XMr9BL0DbzvbSEfc=
+          FRONTEND_BASEURL: http://localhost:3000
+          SMTP_HOST: localhost
+          SMTP_PORT: 25
+          SMTP_USER: ci
+          SMTP_PASSWORD: ci
+          SMTP_FROM: noreply@nawill.ng
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
 
   # Deploying (dev today, prod later) is handled by deploy-dev.yml /
