@@ -43,6 +43,13 @@ server:
   port: ${SERVER_PORT:8080}
 
 management:
+  health:
+    mail:
+      # SMTP reachability is not a signal of application health - an
+      # unreachable/misconfigured mail server (e.g. placeholder creds in an
+      # environment that hasn't set up real SMTP yet) shouldn't fail the
+      # deploy health check the app is otherwise up and serving traffic.
+      enabled: false
   endpoints:
     web:
       exposure:
