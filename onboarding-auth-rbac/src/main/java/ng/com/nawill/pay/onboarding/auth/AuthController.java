@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final TransactionPinService transactionPinService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, TransactionPinService transactionPinService) {
         this.authService = authService;
+        this.transactionPinService = transactionPinService;
     }
 
     @PostMapping("/signup")
@@ -59,5 +61,11 @@ public class AuthController {
     public MessageResponse changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(request);
         return new MessageResponse("Password changed successfully.");
+    }
+
+    @PostMapping("/transaction-pin")
+    public MessageResponse setTransactionPin(@Valid @RequestBody SetTransactionPinRequest request) {
+        transactionPinService.setOrChangePin(request);
+        return new MessageResponse("Transaction PIN set successfully.");
     }
 }
