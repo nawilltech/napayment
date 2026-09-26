@@ -26,6 +26,10 @@ FROM eclipse-temurin:17-jre-jammy
 RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
 WORKDIR /app
 COPY --from=build /workspace/app/target/nawill-pay-app-exec.jar app.jar
+# /app is otherwise root-owned (WORKDIR + COPY both ran as root above) -
+# appuser needs write access here itself since LocalFileStorageGateway
+# creates .data/uploads/<ownerId> at runtime, not at build time.
+RUN mkdir -p /app/.data/uploads && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8080

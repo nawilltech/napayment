@@ -15,7 +15,17 @@ services:
     networks:
       - nawill-net
     mem_limit: 512m
+    volumes:
+      # LocalFileStorageGateway writes KYC uploads under /app/.data -
+      # without this, every deploy's `up -d --build` recreates the
+      # container and silently wipes them (this is still a stopgap,
+      # single-instance, unbacked-up disk store - see the gateway's own
+      # Javadoc for the real fix, swapping to S3-compatible storage).
+      - napayment-uploads:/app/.data
 
 networks:
   nawill-net:
     external: true
+
+volumes:
+  napayment-uploads:
