@@ -25,5 +25,12 @@ services:
       timeout: 5s
       retries: 10
 
+  adminer:
+    image: adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+
 volumes:
   nawill-pay-postgres-data:

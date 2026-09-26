@@ -1,0 +1,57 @@
+name: Deploy (reusable)
+
+# Shared by deploy-dev.yml (and, later, deploy-prod.yml) so the actual deploy
+# mechanics exist in exactly one place - mirrors app.nawill.ng's
+# .github/workflows/_deploy.yml. Not meant to be triggered directly.
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+    secrets:
+      SSH_HOST:
+        required: true
+      SSH_USER:
+        required: true
+      SSH_KEY:
+        required: true
+      APP_PATH:
+        required: true
+      API_ENV_FILE:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # This `environment:` is what scopes secret access - GitHub resolves
+    # `secrets.*` below from the named Environment's own secret store.
+    environment: ${{ inputs.environment_name }}
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.APP_PATH }}"
+
+            git fetch origin "${{ inputs.branch }}"
+            git reset --hard "origin/${{ inputs.branch }}"
+
+            # API_ENV_FILE is the full contents of .env, pasted in as one
+            # multi-line GitHub secret - not enumerated var-by-var.
+            cat > .env <<'NAWILL_ENV_EOF'
+            ${{ secrets.API_ENV_FILE }}
+            NAWILL_ENV_EOF
+
+            # docker-compose.prod.yml, not the default docker-compose.yml -
+            # this deploys onto a shared host with its own Postgres/Redis/
+            # Caddy already running on the external nawill-net network.
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker image prune -f

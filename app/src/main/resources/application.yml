@@ -20,6 +20,7 @@ spring:
     redis:
       host: ${NAWILL_REDIS_HOST}
       port: ${NAWILL_REDIS_PORT}
+      password: ${NAWILL_REDIS_PASSWORD:}
   servlet:
     multipart:
       max-file-size: 10MB

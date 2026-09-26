@@ -1,0 +1,15 @@
+name: Deploy (dev)
+
+# Every push to `dev` redeploys the dev environment. verify (ci.yml) already
+# gated the PR that landed this push - this workflow doesn't re-run tests.
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment_name: dev
+      branch: dev
+    secrets: inherit

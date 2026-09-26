@@ -25,3 +25,8 @@ jobs:
       # separate `services:` block needed.
       - name: Build and verify (unit + integration tests)
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+  # Deploying (dev today, prod later) is handled by deploy-dev.yml /
+  # deploy-prod.yml + the shared _deploy.yml - see docs/softkloud-deploy.md.
+  # Those trigger independently on push to dev/main; this workflow is just
+  # the merge gate (required status check on PRs).

@@ -1,0 +1,21 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: napayment-api
+    restart: unless-stopped
+    # .env supplies everything (DATABASE creds, JWT/encryption secrets, SMTP,
+    # ...) - written from the API_ENV_FILE GitHub secret on every deploy, not
+    # committed. Postgres/Redis are the shared containers already running on
+    # nawill-net (see /opt/stack/docker-compose.yml on the host), reached by
+    # their service names, not localhost.
+    env_file:
+      - .env
+    networks:
+      - nawill-net
+    mem_limit: 512m
+
+networks:
+  nawill-net:
+    external: true
