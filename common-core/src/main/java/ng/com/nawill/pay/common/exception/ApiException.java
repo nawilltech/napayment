@@ -1,27 +1,21 @@
 package ng.com.nawill.pay.common.exception;
 
-import org.springframework.http.HttpStatus;
-
 /**
- * Base type for exceptions that should be translated into a structured API
- * error response by {@link GlobalExceptionHandler}.
+ * The one exception type for an expected API error, translated into an
+ * {@link ng.com.nawill.pay.common.web.ErrorResponse} by
+ * {@link GlobalExceptionHandler}. Status, code and message all come from the
+ * {@link ErrorCode} catalogue; {@code args} fill its message placeholders.
  */
 public class ApiException extends RuntimeException {
 
-    private final HttpStatus status;
-    private final String errorCode;
+    private final ErrorCode errorCode;
 
-    public ApiException(HttpStatus status, String errorCode, String message) {
-        super(message);
-        this.status = status;
+    public ApiException(ErrorCode errorCode, Object... args) {
+        super(errorCode.message(args));
         this.errorCode = errorCode;
     }
 
-    public HttpStatus getStatus() {
-        return status;
-    }
-
-    public String getErrorCode() {
+    public ErrorCode getErrorCode() {
         return errorCode;
     }
 }

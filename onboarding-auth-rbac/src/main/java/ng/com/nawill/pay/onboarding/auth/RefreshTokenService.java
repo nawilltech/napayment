@@ -10,7 +10,8 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.UnauthorizedException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
 import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
@@ -71,7 +72,7 @@ public class RefreshTokenService {
 
     public RotationResult rotate(String rawToken) {
         RefreshToken current = refreshTokenRepository.findByTokenHash(hash(rawToken))
-                .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN", "Invalid refresh token"));
+                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_REFRESH_TOKEN));
 
         if (current.getRevokedAt() != null) {
             log.warn("reused refresh token detected, revoking all active tokens: userId={} tokenId={}",
@@ -79,10 +80,10 @@ public class RefreshTokenService {
             revokeAllActive(current.getUserId());
             securityAuditService.record(AuditEventType.REFRESH_TOKEN_REUSE_DETECTED, AuditOutcome.FAILURE,
                     current.getUserId(), null, "Reused an already-rotated refresh token; all active tokens revoked");
-            throw new UnauthorizedException("REFRESH_TOKEN_REUSED", "This refresh token has already been used");
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_REUSED);
         }
         if (current.isExpired()) {
-            throw new UnauthorizedException("REFRESH_TOKEN_EXPIRED", "Refresh token has expired");
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
         String newRawToken = randomToken();
@@ -111,7 +112,7 @@ public class RefreshTokenService {
 
     /**
      * Commits in its own transaction: reuse detection always ends in an
-     * UnauthorizedException, which rolls back the caller's transaction (this
+     * ApiException (REFRESH_TOKEN_REUSED), which rolls back the caller's transaction (this
      * service's and AuthService#refresh's) - revoking inside it would be
      * undone, leaving a stolen token chain usable. Same reason
      * SecurityAuditService writes with REQUIRES_NEW.

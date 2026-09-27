@@ -3,8 +3,8 @@ package ng.com.nawill.pay.payments.settlement;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.bankaccount.BankAccount;
@@ -49,12 +49,12 @@ public class SettlementAccountService {
         // concurrent creates for the same account can never both pass the
         // sum-<=100% check before either commits.
         VirtualAccount virtualAccount = virtualAccountRepository.findByIdForUpdate(callerVirtualAccountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Virtual account not found: " + callerVirtualAccountId));
+                .orElseThrow(() -> new ApiException(ErrorCode.VIRTUAL_ACCOUNT_NOT_FOUND));
 
         BankAccount bankAccount = bankAccountRepository.findById(request.bankAccountId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + request.bankAccountId()));
+                .orElseThrow(() -> new ApiException(ErrorCode.BANK_ACCOUNT_NOT_FOUND));
         if (!bankAccount.isOwnedByBusiness(currentUser.businessId())) {
-            throw new BadRequestException("Bank account does not belong to the caller's business");
+            throw new ApiException(ErrorCode.BANK_ACCOUNT_NOT_FOUND);
         }
 
         BigDecimal existingTotal = settlementAccountRepository.findByVirtualAccountId(virtualAccount.getId()).stream()
@@ -62,8 +62,7 @@ public class SettlementAccountService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal newTotal = existingTotal.add(request.splitPercentage());
         if (newTotal.compareTo(MAX_TOTAL_PERCENTAGE) > 0) {
-            throw new BadRequestException("SPLIT_PERCENTAGE_EXCEEDED",
-                    "Total split percentage for this virtual account would be " + newTotal + "%, exceeding 100%");
+            throw new ApiException(ErrorCode.SPLIT_PERCENTAGE_EXCEEDED, newTotal);
         }
 
         return settlementAccountRepository.save(new SettlementAccount(virtualAccount, bankAccount, request.splitPercentage()));

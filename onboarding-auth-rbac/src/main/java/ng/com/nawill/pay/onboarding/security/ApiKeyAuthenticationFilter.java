@@ -1,6 +1,5 @@
 package ng.com.nawill.pay.onboarding.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,18 +15,15 @@ import java.util.Set;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
 import ng.com.nawill.pay.common.crypto.HmacSigner;
 import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.logging.LogFields;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.ratelimit.RateLimitService;
 import ng.com.nawill.pay.common.security.ApiKeyAuthenticationToken;
 import ng.com.nawill.pay.common.security.CurrentUser;
-import ng.com.nawill.pay.common.web.ErrorResponse;
+import ng.com.nawill.pay.common.web.ErrorResponseWriter;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyCredential;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelist;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelistRepository;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyRepository;
-import org.slf4j.MDC;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -54,7 +50,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private final ApiKeyIpWhitelistRepository ipWhitelistRepository;
     private final EncryptionService encryptionService;
     private final HmacSigner hmacSigner;
-    private final ObjectMapper objectMapper;
+    private final ErrorResponseWriter errorResponseWriter;
     private final RateLimitService rateLimitService;
     private final long maxClockSkewSeconds;
     private final int ipMaxRequestsPerMinute;
@@ -63,14 +59,14 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     public ApiKeyAuthenticationFilter(ApiKeyRepository apiKeyRepository,
                                        ApiKeyIpWhitelistRepository ipWhitelistRepository,
                                        EncryptionService encryptionService, HmacSigner hmacSigner,
-                                       ObjectMapper objectMapper, RateLimitService rateLimitService,
+                                       ErrorResponseWriter errorResponseWriter, RateLimitService rateLimitService,
                                        long maxClockSkewSeconds, int ipMaxRequestsPerMinute,
                                        int apiKeyMaxRequestsPerMinute) {
         this.apiKeyRepository = apiKeyRepository;
         this.ipWhitelistRepository = ipWhitelistRepository;
         this.encryptionService = encryptionService;
         this.hmacSigner = hmacSigner;
-        this.objectMapper = objectMapper;
+        this.errorResponseWriter = errorResponseWriter;
         this.rateLimitService = rateLimitService;
         this.maxClockSkewSeconds = maxClockSkewSeconds;
         this.ipMaxRequestsPerMinute = ipMaxRequestsPerMinute;
@@ -81,7 +77,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         if (!rateLimitService.tryConsume("ip:" + request.getRemoteAddr(), ipMaxRequestsPerMinute, Duration.ofMinutes(1))) {
-            writeError(response, HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED", "Too many requests from this IP");
+            errorResponseWriter.write(response, ErrorCode.RATE_LIMIT_EXCEEDED);
             return;
         }
 
@@ -91,27 +87,25 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         String timestamp = request.getHeader(HEADER_TIMESTAMP);
         String signature = request.getHeader(HEADER_SIGNATURE);
         if (publicKey == null || timestamp == null || signature == null) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_SIGNATURE_HEADERS",
-                    "X-Public-Key, X-Timestamp and X-Signature headers are all required");
+            errorResponseWriter.write(response, ErrorCode.MISSING_SIGNATURE_HEADERS);
             return;
         }
 
         Optional<ApiKeyCredential> maybeKey = apiKeyRepository.findByPublicKey(publicKey)
                 .filter(key -> key.getStatus() == EntityStatus.ACTIVE);
         if (maybeKey.isEmpty()) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "INVALID_API_KEY", "Unknown or inactive API key");
+            errorResponseWriter.write(response, ErrorCode.INVALID_API_KEY);
             return;
         }
         ApiKeyCredential apiKey = maybeKey.get();
 
         if (!rateLimitService.tryConsume("apikey:" + apiKey.getId(), apiKeyMaxRequestsPerMinute, Duration.ofMinutes(1))) {
-            writeError(response, HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED", "Too many requests for this API key");
+            errorResponseWriter.write(response, ErrorCode.RATE_LIMIT_EXCEEDED);
             return;
         }
 
         if (!withinClockSkew(timestamp)) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "STALE_TIMESTAMP",
-                    "Request timestamp is outside the allowed clock-skew window");
+            errorResponseWriter.write(response, ErrorCode.STALE_TIMESTAMP, maxClockSkewSeconds);
             return;
         }
 
@@ -119,15 +113,14 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         String canonicalString = timestamp + "." + rawBody;
         String secretKey = encryptionService.decrypt(apiKey.getSecretKeyEncrypted());
         if (!hmacSigner.verify(secretKey, canonicalString, signature)) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "INVALID_SIGNATURE", "Request signature verification failed");
+            errorResponseWriter.write(response, ErrorCode.INVALID_SIGNATURE);
             return;
         }
 
         List<String> whitelist = ipWhitelistRepository.findByApiKeyId(apiKey.getId()).stream()
                 .map(ApiKeyIpWhitelist::getCidr).toList();
         if (!whitelist.isEmpty() && whitelist.stream().noneMatch(cidr -> matchesCidr(request.getRemoteAddr(), cidr))) {
-            writeError(response, HttpStatus.FORBIDDEN, "IP_NOT_WHITELISTED",
-                    "Source IP is not in this API key's whitelist");
+            errorResponseWriter.write(response, ErrorCode.IP_NOT_WHITELISTED);
             return;
         }
 
@@ -179,11 +172,4 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    private void writeError(HttpServletResponse response, HttpStatus status, String errorCode, String message)
-            throws IOException {
-        response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        ErrorResponse body = ErrorResponse.of(status.value(), errorCode, message, MDC.get(LogFields.REQUEST_ID));
-        objectMapper.writeValue(response.getWriter(), body);
-    }
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -85,7 +86,7 @@ class TransferIT extends AbstractIntegrationTest {
                         "transactionPin", "1234"), headers), Map.class);
 
         assertThat(transfer.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(transfer.getBody().get("errorCode")).isEqualTo("PIN_NOT_SET");
+        assertThat(transfer.getBody().get("errorCode")).isEqualTo(ErrorCode.PIN_NOT_SET.name());
     }
 
     @Test
@@ -95,11 +96,11 @@ class TransferIT extends AbstractIntegrationTest {
         setPin(sender.token, "1234");
 
         ResponseEntity<Map> first = transferAttempt(sender.token, recipient.accountNumber, "0000");
-        assertThat(first.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(first.getStatusCode()).isEqualTo(ErrorCode.INVALID_PIN.status());
         assertThat((String) first.getBody().get("message")).contains("1/3");
 
         ResponseEntity<Map> second = transferAttempt(sender.token, recipient.accountNumber, "0000");
-        assertThat(second.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(second.getStatusCode()).isEqualTo(ErrorCode.INVALID_PIN.status());
         assertThat((String) second.getBody().get("message")).contains("2/3");
 
         ResponseEntity<Map> third = transferAttempt(sender.token, recipient.accountNumber, "0000");
@@ -118,7 +119,7 @@ class TransferIT extends AbstractIntegrationTest {
         ResponseEntity<Map> transfer = transferAttempt(sender.token, sender.accountNumber, "1234");
 
         assertThat(transfer.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(transfer.getBody().get("errorCode")).isEqualTo("SELF_TRANSFER");
+        assertThat(transfer.getBody().get("errorCode")).isEqualTo(ErrorCode.SELF_TRANSFER.name());
     }
 
     @Test
@@ -130,7 +131,7 @@ class TransferIT extends AbstractIntegrationTest {
         ResponseEntity<Map> transfer = transferAttempt(sender.token, recipient.accountNumber, "1234", 999_999);
 
         assertThat(transfer.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(transfer.getBody().get("errorCode")).isEqualTo("INSUFFICIENT_BALANCE");
+        assertThat(transfer.getBody().get("errorCode")).isEqualTo(ErrorCode.INSUFFICIENT_BALANCE.name());
     }
 
     @Test
@@ -141,8 +142,8 @@ class TransferIT extends AbstractIntegrationTest {
         ResponseEntity<Map> wrongCurrentPin = restTemplate.exchange(url("/api/v1/auth/transaction-pin"), HttpMethod.POST,
                 new HttpEntity<>(Map.of("currentPassword", "SecurePass123!", "currentPin", "0000",
                         "pin", "5678", "confirmPin", "5678"), authHeaders(sender.token)), Map.class);
-        assertThat(wrongCurrentPin.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(wrongCurrentPin.getBody().get("errorCode")).isEqualTo("INVALID_PIN");
+        assertThat(wrongCurrentPin.getStatusCode()).isEqualTo(ErrorCode.INCORRECT_CURRENT_PIN.status());
+        assertThat(wrongCurrentPin.getBody().get("errorCode")).isEqualTo(ErrorCode.INCORRECT_CURRENT_PIN.name());
 
         ResponseEntity<Map> correctChange = restTemplate.exchange(url("/api/v1/auth/transaction-pin"), HttpMethod.POST,
                 new HttpEntity<>(Map.of("currentPassword", "SecurePass123!", "currentPin", "1234",

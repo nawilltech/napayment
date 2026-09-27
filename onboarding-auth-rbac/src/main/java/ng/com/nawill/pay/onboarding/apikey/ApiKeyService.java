@@ -7,8 +7,8 @@ import java.util.HexFormat;
 import java.util.UUID;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
 import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.common.web.PageResponse;
 import org.slf4j.Logger;
@@ -47,8 +47,7 @@ public class ApiKeyService {
     public ApiKeyGeneratedResponse generate() {
         UUID businessId = currentUserResolver.requireBusinessScope().businessId();
         if (apiKeyRepository.findByBusinessIdAndStatus(businessId, EntityStatus.ACTIVE).isPresent()) {
-            throw new BadRequestException("API_KEY_ALREADY_EXISTS",
-                    "An active API key pair already exists for this business - use regenerate instead");
+            throw new ApiException(ErrorCode.API_KEY_ALREADY_EXISTS);
         }
         return issue(businessId);
     }
@@ -118,10 +117,10 @@ public class ApiKeyService {
         try {
             URI parsed = new URI(url);
             if (parsed.getScheme() == null || !parsed.getScheme().matches("https?") || parsed.getHost() == null) {
-                throw new BadRequestException("Enter a valid URL");
+                throw new ApiException(ErrorCode.INVALID_URL);
             }
         } catch (URISyntaxException e) {
-            throw new BadRequestException("Enter a valid URL");
+            throw new ApiException(ErrorCode.INVALID_URL);
         }
         return url;
     }
@@ -140,7 +139,7 @@ public class ApiKeyService {
     private ApiKeyCredential requireActiveKey() {
         UUID businessId = currentUserResolver.requireBusinessScope().businessId();
         return apiKeyRepository.findByBusinessIdAndStatus(businessId, EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("No active API key for this business - generate one first"));
+                .orElseThrow(() -> new ApiException(ErrorCode.API_KEY_NOT_FOUND));
     }
 
     private String randomHex(int byteLength) {
