@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.virtualaccount;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
 import org.springframework.data.domain.PageRequest;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Virtual Accounts", description = "The caller's virtual accounts.")
 @RestController
 @RequestMapping("/api/v1/virtual-accounts")
 public class VirtualAccountController {
@@ -19,6 +22,7 @@ public class VirtualAccountController {
         this.virtualAccountQueryService = virtualAccountQueryService;
     }
 
+    @Operation(summary = "List the caller's virtual accounts and balances")
     @GetMapping
     @PreAuthorize("@auth.can('virtualaccounts:read')")
     public PageResponse<VirtualAccountResponse> listMine(@RequestParam(defaultValue = PageDefaults.PAGE) int page,

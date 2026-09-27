@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.dynamicaccount;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Temporary Accounts", description = "Short-lived dynamic virtual accounts for one-off payments.")
 @RestController
 @RequestMapping("/api/v1/temporary-accounts")
 public class DynamicVirtualAccountController {
@@ -30,6 +33,7 @@ public class DynamicVirtualAccountController {
         this.dynamicVirtualAccountService = dynamicVirtualAccountService;
     }
 
+    @Operation(summary = "Create a temporary virtual account")
     @PostMapping
     @PreAuthorize("@auth.can('temporaryaccounts:manage')")
     public ResponseEntity<DynamicVirtualAccountResponse> mint(@Valid @RequestBody CreateDynamicAccountRequest request) {
@@ -38,6 +42,7 @@ public class DynamicVirtualAccountController {
                 .body(DynamicVirtualAccountResponse.from(account));
     }
 
+    @Operation(summary = "List the business's temporary accounts")
     @GetMapping
     @PreAuthorize("@auth.can('temporaryaccounts:manage')")
     public PageResponse<DynamicVirtualAccountResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
@@ -52,6 +57,7 @@ public class DynamicVirtualAccountController {
      * MVP) - authenticated, not public, since only the owning business
      * should be able to simulate a payment landing on its own account.
      */
+    @Operation(summary = "Simulate an inbound deposit to a temporary account (sandbox)")
     @PostMapping("/{accountNumber}/simulate-deposit")
     @Idempotent
     @PreAuthorize("@auth.can('temporaryaccounts:manage')")

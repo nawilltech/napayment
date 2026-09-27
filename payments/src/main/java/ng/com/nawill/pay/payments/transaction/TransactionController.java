@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.transaction;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.math.BigInteger;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Transactions", description = "Transactions, history and analytics.")
 @RestController
 @RequestMapping("/api/v1/transactions")
 public class TransactionController {
@@ -32,6 +35,7 @@ public class TransactionController {
         this.transactionService = transactionService;
     }
 
+    @Operation(summary = "Record a collection transaction")
     @PostMapping
     @Idempotent
     @PreAuthorize("@auth.can('transactions:create')")
@@ -43,6 +47,7 @@ public class TransactionController {
                 .body(TransactionResponse.from(transaction));
     }
 
+    @Operation(summary = "List transactions with filters")
     @GetMapping
     @PreAuthorize("@auth.can('transactions:read')")
     public PageResponse<TransactionResponse> list(@RequestParam(required = false) String term,
@@ -64,6 +69,7 @@ public class TransactionController {
                 transactionService.list(filter, PageRequest.of(page, size)).map(TransactionResponse::from));
     }
 
+    @Operation(summary = "Get transaction totals and trends")
     @GetMapping("/analytics")
     @PreAuthorize("@auth.can('transactions:read')")
     public TransactionAnalyticsResponse analytics(@RequestParam(required = false) String term,
@@ -82,6 +88,7 @@ public class TransactionController {
         return transactionService.analyze(filter);
     }
 
+    @Operation(summary = "Get a transaction")
     @GetMapping("/{id}")
     @PreAuthorize("@auth.can('transactions:read')")
     public TransactionResponse get(@PathVariable UUID id) {

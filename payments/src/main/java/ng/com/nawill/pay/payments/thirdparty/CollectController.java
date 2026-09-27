@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.thirdparty;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
  * effect, locking, and collection-account mirroring as a JWT-authenticated
  * transaction - no duplicated business logic.
  */
+@Tag(name = "Server-to-Server (API Key)", description = "Endpoints for a business's own servers, signed with its API key.")
 @RestController
 @RequestMapping("/api/v1/collect")
 public class CollectController {
@@ -47,6 +50,7 @@ public class CollectController {
         this.paymentProcessorRepository = paymentProcessorRepository;
     }
 
+    @Operation(summary = "Record a collection into the business's virtual account")
     @PostMapping
     @Idempotent
     @PreAuthorize("@auth.can('collect:create')")

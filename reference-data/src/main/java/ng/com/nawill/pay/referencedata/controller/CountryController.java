@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.referencedata.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Reference Data")
 @RestController
 @RequestMapping("/api/v1/countries")
 public class CountryController {
@@ -22,6 +25,7 @@ public class CountryController {
         this.referenceDataService = referenceDataService;
     }
 
+    @Operation(summary = "List countries")
     @GetMapping
     public PageResponse<CountryResponse> listCountries(@RequestParam(required = false) String term,
                                                          @RequestParam(defaultValue = PageDefaults.PAGE) int page,
@@ -30,6 +34,7 @@ public class CountryController {
                 referenceDataService.listCountries(term, PageRequest.of(page, size)).map(CountryResponse::from));
     }
 
+    @Operation(summary = "Get a country")
     @GetMapping("/{id}")
     public CountryResponse getCountry(@PathVariable UUID id) {
         return CountryResponse.from(referenceDataService.getCountry(id));

@@ -31,7 +31,7 @@ class CollectionAccountIT extends AbstractIntegrationTest {
 
         UUID bankId = insertBank();
         Map<String, Object> request = Map.of(
-                "bankId", bankId.toString(), "accountNumber", "9000000099", "accountName", "Sneaky Pool");
+                "bankId", bankId.toString(), "accountNumber", "9000000099");
         ResponseEntity<Map> response = restTemplate.exchange(
                 url("/api/v1/collection-account"), HttpMethod.POST, new HttpEntity<>(request, authHeaders(token)), Map.class);
 
@@ -44,7 +44,7 @@ class CollectionAccountIT extends AbstractIntegrationTest {
         String adminToken = superAdminToken();
         UUID bankId = insertBank();
         Map<String, Object> request = Map.of(
-                "bankId", bankId.toString(), "accountNumber", "9000000001", "accountName", "Nawill Pay Pool");
+                "bankId", bankId.toString(), "accountNumber", "9000000001");
 
         ResponseEntity<Map> existing = restTemplate.exchange(
                 url("/api/v1/collection-account"), HttpMethod.GET, new HttpEntity<>(authHeaders(adminToken)), Map.class);
@@ -62,6 +62,7 @@ class CollectionAccountIT extends AbstractIntegrationTest {
                 url("/api/v1/collection-account"), HttpMethod.POST, new HttpEntity<>(request, authHeaders(adminToken)), Map.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(((Number) created.getBody().get("balance")).longValue()).isZero();
+        assertThat(created.getBody().get("accountName")).isEqualTo("TEST ACCOUNT HOLDER");
 
         ResponseEntity<Map> duplicate = restTemplate.exchange(
                 url("/api/v1/collection-account"), HttpMethod.POST, new HttpEntity<>(request, authHeaders(adminToken)), Map.class);

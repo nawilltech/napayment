@@ -123,7 +123,7 @@ class SettlementServiceIT extends AbstractIntegrationTest {
         }
         UUID bankId = insertBank();
         Map<String, Object> request = Map.of(
-                "bankId", bankId.toString(), "accountNumber", "9000000001", "accountName", "Nawill Pay Pool");
+                "bankId", bankId.toString(), "accountNumber", "9000000001");
         restTemplate.exchange(url("/api/v1/collection-account"), HttpMethod.POST,
                 new HttpEntity<>(request, authHeaders(adminToken)), Map.class);
     }

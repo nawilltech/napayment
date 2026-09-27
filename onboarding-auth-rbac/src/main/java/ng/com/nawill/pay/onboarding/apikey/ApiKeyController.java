@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.apikey;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "API Keys", description = "The business's API key pair, IP whitelist and webhook settings.")
 @RestController
 @RequestMapping("/api/v1/api-keys")
 public class ApiKeyController {
@@ -26,12 +29,14 @@ public class ApiKeyController {
         this.apiKeyService = apiKeyService;
     }
 
+    @Operation(summary = "Generate the business's API key pair")
     @PostMapping
     @PreAuthorize("@auth.can('apikeys:manage')")
     public ResponseEntity<ApiKeyGeneratedResponse> generate() {
         return ResponseEntity.status(HttpStatus.CREATED).body(apiKeyService.generate());
     }
 
+    @Operation(summary = "Regenerate the API key pair, invalidating the old one")
     @PostMapping("/regenerate")
     @PreAuthorize("@auth.can('apikeys:manage')")
     public ResponseEntity<ApiKeyGeneratedResponse> regenerate() {
@@ -39,6 +44,7 @@ public class ApiKeyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(apiKeyService.regenerate());
     }
 
+    @Operation(summary = "List the business's API keys")
     @GetMapping
     @PreAuthorize("@auth.can('apikeys:manage')")
     public PageResponse<ApiKeyResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
@@ -46,6 +52,7 @@ public class ApiKeyController {
         return apiKeyService.list(PageRequest.of(page, size));
     }
 
+    @Operation(summary = "Add an IP/CIDR to the API key whitelist")
     @PostMapping("/ip-whitelist")
     @PreAuthorize("@auth.can('apikeys:manage')")
     public ResponseEntity<Void> addIpToWhitelist(@Valid @RequestBody IpWhitelistRequest request) {
@@ -53,6 +60,7 @@ public class ApiKeyController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @Operation(summary = "List whitelisted IPs for API key calls")
     @GetMapping("/ip-whitelist")
     @PreAuthorize("@auth.can('apikeys:manage')")
     public PageResponse<String> listIpWhitelist(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
@@ -60,6 +68,7 @@ public class ApiKeyController {
         return apiKeyService.listWhitelist(PageRequest.of(page, size));
     }
 
+    @Operation(summary = "Remove an IP/CIDR from the whitelist")
     @DeleteMapping("/ip-whitelist")
     @PreAuthorize("@auth.can('apikeys:manage')")
     public ResponseEntity<Void> removeIpFromWhitelist(@RequestParam String cidr) {
@@ -67,12 +76,14 @@ public class ApiKeyController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Set the webhook URLs for API key events")
     @PutMapping("/webhook-config")
     @PreAuthorize("@auth.can('apikeys:manage')")
     public WebhookConfigResponse updateWebhookConfig(@RequestBody WebhookConfigRequest request) {
         return apiKeyService.updateWebhookConfig(request);
     }
 
+    @Operation(summary = "Get the configured webhook URLs")
     @GetMapping("/webhook-config")
     @PreAuthorize("@auth.can('apikeys:manage')")
     public WebhookConfigResponse getWebhookConfig() {

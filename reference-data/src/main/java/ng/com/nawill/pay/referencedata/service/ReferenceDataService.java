@@ -59,9 +59,11 @@ public class ReferenceDataService {
     }
 
     public Page<Bank> listBanks(String term, Pageable pageable) {
-        return isBlank(term)
-                ? bankRepository.findAll(pageable)
-                : bankRepository.findByNameContainingIgnoreCase(term.trim(), pageable);
+        if (isBlank(term)) {
+            return bankRepository.findAll(pageable);
+        }
+        String trimmed = term.trim();
+        return bankRepository.findByNameContainingIgnoreCaseOrCodeStartingWith(trimmed, trimmed, pageable);
     }
 
     private static boolean isBlank(String term) {

@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.settlement;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import ng.com.nawill.pay.common.web.PageDefaults;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Settlements", description = "Split settlement configuration and settlement triggers.")
 @RestController
 @RequestMapping("/api/v1/settlement-accounts")
 public class SettlementAccountController {
@@ -25,6 +28,7 @@ public class SettlementAccountController {
         this.settlementAccountService = settlementAccountService;
     }
 
+    @Operation(summary = "Attach a bank account to the virtual account with a split percentage")
     @PostMapping
     @PreAuthorize("@auth.can('settlements:manage')")
     public ResponseEntity<SettlementAccountResponse> create(@Valid @RequestBody CreateSettlementAccountRequest request) {
@@ -33,6 +37,7 @@ public class SettlementAccountController {
                 .body(SettlementAccountResponse.from(account));
     }
 
+    @Operation(summary = "List the settlement accounts and their splits")
     @GetMapping
     @PreAuthorize("@auth.can('settlements:read')")
     public PageResponse<SettlementAccountResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
@@ -41,6 +46,7 @@ public class SettlementAccountController {
                 .map(SettlementAccountResponse::from));
     }
 
+    @Operation(summary = "Turn auto-settle after each collection on or off")
     @PatchMapping("/auto-settle")
     @PreAuthorize("@auth.can('settlements:manage')")
     public ResponseEntity<Void> toggleAutoSettle(@Valid @RequestBody AutoSettleToggleRequest request) {

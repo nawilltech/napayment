@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.rbac;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import ng.com.nawill.pay.common.web.PageDefaults;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Team & Roles", description = "Business roles and team invitations.")
 @RestController
 @RequestMapping("/api/v1/roles")
 public class RoleController {
@@ -24,6 +27,7 @@ public class RoleController {
         this.roleService = roleService;
     }
 
+    @Operation(summary = "Create a custom role for the business")
     @PostMapping
     @PreAuthorize("@auth.can('roles:manage')")
     public ResponseEntity<RoleResponse> create(@Valid @RequestBody CreateRoleRequest request) {
@@ -32,6 +36,7 @@ public class RoleController {
                 .body(RoleResponse.from(role, request.permissionNames()));
     }
 
+    @Operation(summary = "List roles available to the business")
     @GetMapping
     @PreAuthorize("@auth.can('roles:manage')")
     public PageResponse<RoleResponse> list(@RequestParam(required = false) String term,
