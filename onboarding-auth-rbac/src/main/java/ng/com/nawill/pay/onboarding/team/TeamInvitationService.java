@@ -2,7 +2,8 @@ package ng.com.nawill.pay.onboarding.team;
 
 import java.util.List;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
@@ -87,7 +88,7 @@ public class TeamInvitationService {
     public void revoke(UUID invitationId) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         TeamInvitation invitation = teamInvitationRepository.findByIdAndBusinessId(invitationId, currentUser.businessId())
-                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found: " + invitationId));
+                .orElseThrow(() -> new ApiException(ErrorCode.INVITATION_NOT_FOUND));
         invitation.revoke();
         teamInvitationRepository.save(invitation);
         securityAuditService.record(AuditEventType.TEAM_INVITATION_REVOKED, AuditOutcome.SUCCESS,

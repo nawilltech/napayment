@@ -3,8 +3,8 @@ package ng.com.nawill.pay.payments.dynamicaccount;
 import java.time.Duration;
 import java.time.Instant;
 import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
@@ -78,21 +78,20 @@ public class DynamicVirtualAccountService {
     public Transaction simulateDeposit(String accountNumber, SimulateDepositRequest request, String idempotencyKey) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         DynamicVirtualAccount account = dynamicVirtualAccountRepository.findByAccountNumberForUpdate(accountNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Dynamic virtual account not found: " + accountNumber));
+                .orElseThrow(() -> new ApiException(ErrorCode.DYNAMIC_ACCOUNT_NOT_FOUND));
         if (!account.isOwnedByBusiness(currentUser.businessId())) {
-            throw new BadRequestException("Dynamic virtual account does not belong to the caller's business");
+            throw new ApiException(ErrorCode.DYNAMIC_ACCOUNT_NOT_FOUND);
         }
 
         if (account.isExpired() && account.getDynamicAccountStatus() == DynamicAccountStatus.ACTIVE) {
             account.markExpired();
         }
         if (!account.isDepositable()) {
-            throw new BadRequestException("DYNAMIC_ACCOUNT_NOT_DEPOSITABLE",
-                    "This account is " + account.getDynamicAccountStatus().name().toLowerCase() + " and cannot accept a deposit");
+            throw new ApiException(ErrorCode.DYNAMIC_ACCOUNT_NOT_DEPOSITABLE, account.getDynamicAccountStatus().name().toLowerCase());
         }
 
         PaymentProcessor processor = paymentProcessorRepository.findFirstByStatus(EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("No active payment processor configured"));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENTS_UNAVAILABLE));
 
         CreateTransactionRequest createRequest = new CreateTransactionRequest(
                 account.getVirtualAccount().getId(), processor.getId(), TransactionType.CREDIT, request.amount());

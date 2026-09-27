@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -48,8 +49,8 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
     void generatingASecondKeyWhileOneIsActiveIsRejected() {
         ResponseEntity<Map> second = restTemplate.exchange(
                 url("/api/v1/api-keys"), HttpMethod.POST, new HttpEntity<>(authHeaders(businessToken)), Map.class);
-        assertThat(second.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(second.getBody().get("errorCode")).isEqualTo("API_KEY_ALREADY_EXISTS");
+        assertThat(second.getStatusCode()).isEqualTo(ErrorCode.API_KEY_ALREADY_EXISTS.status());
+        assertThat(second.getBody().get("errorCode")).isEqualTo(ErrorCode.API_KEY_ALREADY_EXISTS.name());
     }
 
     @Test
@@ -65,7 +66,7 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
         String oldSignature = hmacSha256Hex(secretKey, timestamp + "." + body);
         ResponseEntity<Map> withOldKey = signedCollect(publicKey, timestamp, oldSignature, body);
         assertThat(withOldKey.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(withOldKey.getBody().get("errorCode")).isEqualTo("INVALID_API_KEY");
+        assertThat(withOldKey.getBody().get("errorCode")).isEqualTo(ErrorCode.INVALID_API_KEY.name());
     }
 
     @Test
@@ -90,7 +91,7 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
                 url("/api/v1/collect"), HttpMethod.POST, new HttpEntity<>("{\"amount\":1000}", headers), Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(response.getBody().get("errorCode")).isEqualTo("MISSING_SIGNATURE_HEADERS");
+        assertThat(response.getBody().get("errorCode")).isEqualTo(ErrorCode.MISSING_SIGNATURE_HEADERS.name());
     }
 
     @Test
@@ -99,7 +100,7 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
         ResponseEntity<Map> response = signedCollect(publicKey, timestamp, "0000deadbeef0000", "{\"amount\":1000}");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(response.getBody().get("errorCode")).isEqualTo("INVALID_SIGNATURE");
+        assertThat(response.getBody().get("errorCode")).isEqualTo(ErrorCode.INVALID_SIGNATURE.name());
     }
 
     @Test
@@ -111,7 +112,7 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
         ResponseEntity<Map> response = signedCollect(publicKey, staleTimestamp, signature, body);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(response.getBody().get("errorCode")).isEqualTo("STALE_TIMESTAMP");
+        assertThat(response.getBody().get("errorCode")).isEqualTo(ErrorCode.STALE_TIMESTAMP.name());
     }
 
     @Test
@@ -126,7 +127,7 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
         String signature = hmacSha256Hex(secretKey, timestamp + "." + body);
         ResponseEntity<Map> blocked = signedCollect(publicKey, timestamp, signature, body);
         assertThat(blocked.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(blocked.getBody().get("errorCode")).isEqualTo("IP_NOT_WHITELISTED");
+        assertThat(blocked.getBody().get("errorCode")).isEqualTo(ErrorCode.IP_NOT_WHITELISTED.name());
 
         ResponseEntity<Void> removeWhitelist = restTemplate.exchange(
                 // Template variable, not a hand-encoded "%2F": RestTemplate encodes the URL string again,

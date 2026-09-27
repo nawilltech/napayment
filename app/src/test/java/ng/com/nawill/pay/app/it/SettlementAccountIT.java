@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -55,7 +56,7 @@ class SettlementAccountIT extends AbstractIntegrationTest {
                 Map.class);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(second.getBody().get("errorCode")).isEqualTo("SPLIT_PERCENTAGE_EXCEEDED");
+        assertThat(second.getBody().get("errorCode")).isEqualTo(ErrorCode.SPLIT_PERCENTAGE_EXCEEDED.name());
     }
 
     @Test

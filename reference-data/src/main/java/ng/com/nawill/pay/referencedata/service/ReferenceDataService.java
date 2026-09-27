@@ -1,7 +1,8 @@
 package ng.com.nawill.pay.referencedata.service;
 
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.referencedata.entity.AdminDivision;
 import ng.com.nawill.pay.referencedata.entity.Bank;
 import ng.com.nawill.pay.referencedata.entity.Country;
@@ -37,7 +38,7 @@ public class ReferenceDataService {
 
     public Country getCountry(UUID id) {
         return countryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Country not found: " + id));
+                .orElseThrow(() -> new ApiException(ErrorCode.COUNTRY_NOT_FOUND));
     }
 
     public Page<AdminDivision> listDivisions(UUID countryId, Integer level, String term, Pageable pageable) {

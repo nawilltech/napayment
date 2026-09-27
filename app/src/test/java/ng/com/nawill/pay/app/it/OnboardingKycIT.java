@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -101,7 +102,8 @@ class OnboardingKycIT extends AbstractIntegrationTest {
         ResponseEntity<Map> missingDocs = restTemplate.exchange(
                 url("/api/v1/kyc/submit"), HttpMethod.POST, new HttpEntity<>(authHeaders(token)), Map.class);
         assertThat(missingDocs.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat((String) missingDocs.getBody().get("message")).contains("Missing documents");
+        assertThat(missingDocs.getBody().get("errorCode")).isEqualTo(ErrorCode.KYC_DOCUMENTS_MISSING.name());
+        assertThat((String) missingDocs.getBody().get("message")).contains("CAC certificate");
 
         for (String type : List.of("CAC_CERTIFICATE", "MEMORANDUM_AND_ARTICLES", "PROOF_OF_ADDRESS", "DIRECTOR_VALID_ID")) {
             uploadKycDocument(token, type, type.toLowerCase() + ".pdf");

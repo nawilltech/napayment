@@ -1,7 +1,8 @@
 package ng.com.nawill.pay.payments.processor;
 
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,6 @@ public class PaymentProcessorService {
     @Transactional(readOnly = true)
     public PaymentProcessor get(UUID id) {
         return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment processor not found: " + id));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_PROCESSOR_NOT_FOUND));
     }
 }

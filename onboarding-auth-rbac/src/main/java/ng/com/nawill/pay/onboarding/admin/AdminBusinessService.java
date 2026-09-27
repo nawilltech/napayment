@@ -7,8 +7,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import ng.com.nawill.pay.common.exception.ConflictException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
 import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
@@ -102,7 +102,7 @@ public class AdminBusinessService {
         UUID reviewerId = currentUserResolver.requireCurrentUser().userId();
         Business business = find(businessId);
         if (!business.isAwaitingKycReview()) {
-            throw new ConflictException("KYC is not awaiting review (status: " + business.getKycStatus() + ")");
+            throw new ApiException(ErrorCode.KYC_NOT_AWAITING_REVIEW);
         }
         business.recordKycDecision(decision, reviewerId, note);
         business = businessRepository.save(business);
@@ -116,7 +116,7 @@ public class AdminBusinessService {
 
     private Business find(UUID businessId) {
         return businessRepository.findById(businessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found: " + businessId));
+                .orElseThrow(() -> new ApiException(ErrorCode.BUSINESS_NOT_FOUND));
     }
 
     private AdminBusinessDetailResponse detail(Business business) {

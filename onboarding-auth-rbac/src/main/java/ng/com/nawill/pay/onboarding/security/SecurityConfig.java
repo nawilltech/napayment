@@ -1,13 +1,14 @@
 package ng.com.nawill.pay.onboarding.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import javax.crypto.spec.SecretKeySpec;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
 import ng.com.nawill.pay.common.crypto.HmacSigner;
-import ng.com.nawill.pay.common.security.SecurityPaths;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.ratelimit.RateLimitService;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.common.security.SecurityPaths;
+import ng.com.nawill.pay.common.web.ErrorResponseWriter;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelistRepository;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,7 +26,9 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
@@ -57,7 +60,7 @@ public class SecurityConfig {
     public SecurityFilterChain apiKeyFilterChain(HttpSecurity http, ApiKeyRepository apiKeyRepository,
                                                   ApiKeyIpWhitelistRepository ipWhitelistRepository,
                                                   EncryptionService encryptionService, HmacSigner hmacSigner,
-                                                  ObjectMapper objectMapper, RateLimitService rateLimitService,
+                                                  ErrorResponseWriter errorResponseWriter, RateLimitService rateLimitService,
                                                   @Value("${nawill.security.request-signing.max-clock-skew-seconds:300}")
                                                   long maxClockSkewSeconds,
                                                   @Value("${nawill.security.rate-limit.ip.max-requests-per-minute:120}")
@@ -65,12 +68,15 @@ public class SecurityConfig {
                                                   @Value("${nawill.security.rate-limit.api-key.max-requests-per-minute:60}")
                                                   int apiKeyMaxRequestsPerMinute) throws Exception {
         ApiKeyAuthenticationFilter apiKeyAuthenticationFilter = new ApiKeyAuthenticationFilter(
-                apiKeyRepository, ipWhitelistRepository, encryptionService, hmacSigner, objectMapper, rateLimitService,
+                apiKeyRepository, ipWhitelistRepository, encryptionService, hmacSigner, errorResponseWriter, rateLimitService,
                 maxClockSkewSeconds, ipMaxRequestsPerMinute, apiKeyMaxRequestsPerMinute);
 
         http
                 .securityMatcher(SecurityPaths.API_KEY)
                 .csrf(csrf -> csrf.disable())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, e) ->
+                                errorResponseWriter.write(response, ErrorCode.MISSING_SIGNATURE_HEADERS)))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
                 .addFilterBefore(apiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -79,16 +85,28 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ErrorResponseWriter errorResponseWriter)
+            throws Exception {
+        // Rejected/missing tokens and denials get the catalogue's JSON body, not Spring's empty 401/403.
+        AuthenticationEntryPoint unauthenticated = (request, response, e) ->
+                errorResponseWriter.write(response, ErrorCode.UNAUTHENTICATED);
+        AccessDeniedHandler forbidden = (request, response, e) ->
+                errorResponseWriter.write(response, ErrorCode.FORBIDDEN);
         http
                 .csrf(csrf -> csrf.disable())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(unauthenticated)
+                        .accessDeniedHandler(forbidden))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SecurityPaths.PUBLIC).permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
-                        .decoder(jwtDecoder())
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .authenticationEntryPoint(unauthenticated)
+                        .accessDeniedHandler(forbidden)
+                        .jwt(jwt -> jwt
+                                .decoder(jwtDecoder())
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter())));
         return http.build();
     }
 

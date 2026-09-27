@@ -1,7 +1,7 @@
 package ng.com.nawill.pay.onboarding.business;
 
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
@@ -38,10 +38,10 @@ public class BusinessKycService {
     public Business updateDetails(BusinessKycDetailsRequest request) {
         Business business = callerBusiness();
         if (!countryRepository.existsById(request.countryId())) {
-            throw new BadRequestException("UNKNOWN_COUNTRY", "Unknown country: " + request.countryId());
+            throw new ApiException(ErrorCode.UNKNOWN_COUNTRY);
         }
         if (!adminDivisionRepository.existsById(request.stateId())) {
-            throw new BadRequestException("UNKNOWN_STATE", "Unknown state: " + request.stateId());
+            throw new ApiException(ErrorCode.UNKNOWN_STATE);
         }
         CacLookupResult cacLookupResult = cacLookupGateway.lookup(request.cacNumber(), request.registeredName());
         business.updateKycDetails(request.registeredName(), request.cacNumber(), request.businessType(),
@@ -63,6 +63,6 @@ public class BusinessKycService {
     private Business callerBusiness() {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         return businessRepository.findById(currentUser.businessId())
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found: " + currentUser.businessId()));
+                .orElseThrow(() -> new ApiException(ErrorCode.BUSINESS_NOT_FOUND));
     }
 }

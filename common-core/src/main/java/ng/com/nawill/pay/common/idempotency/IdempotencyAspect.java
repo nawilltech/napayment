@@ -3,8 +3,8 @@ package ng.com.nawill.pay.common.idempotency;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ConflictException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -36,8 +36,7 @@ public class IdempotencyAspect {
         HttpServletRequest request = currentRequest();
         String key = request.getHeader(IdempotencyConstants.HEADER);
         if (key == null || key.isBlank()) {
-            throw new BadRequestException("IDEMPOTENCY_KEY_REQUIRED",
-                    "The '" + IdempotencyConstants.HEADER + "' header is required for this operation");
+            throw new ApiException(ErrorCode.IDEMPOTENCY_KEY_REQUIRED, IdempotencyConstants.HEADER);
         }
 
         var existing = idempotencyService.find(key);
@@ -47,7 +46,7 @@ public class IdempotencyAspect {
                 log.info("replaying cached response for idempotency key");
                 return replay(record);
             }
-            throw new ConflictException("A request with this idempotency key is still processing");
+            throw new ApiException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
         }
 
         idempotencyService.tryAcquireRedisLock(key);
@@ -56,7 +55,7 @@ public class IdempotencyAspect {
         try {
             record = idempotencyService.createInProgress(key, request.getMethod(), request.getRequestURI());
         } catch (DataIntegrityViolationException e) {
-            throw new ConflictException("A request with this idempotency key is still processing");
+            throw new ApiException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
         }
 
         Object result;

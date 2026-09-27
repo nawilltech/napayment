@@ -3,6 +3,7 @@ package ng.com.nawill.pay.app.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.onboarding.auth.AuthRedisConstants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +47,7 @@ class PasswordManagementIT extends AbstractIntegrationTest {
 
         ResponseEntity<Map> third = restTemplate.postForEntity(url("/api/v1/auth/login"), badLogin, Map.class);
         assertThat(third.getStatusCode()).isEqualTo(HttpStatus.LOCKED);
-        assertThat(third.getBody().get("errorCode")).isEqualTo("ACCOUNT_LOCKED");
+        assertThat(third.getBody().get("errorCode")).isEqualTo(ErrorCode.ACCOUNT_LOCKED.name());
 
         Map<String, Object> correctLogin = Map.of("email", email, "password", "SecurePass123!");
         ResponseEntity<Map> whileLocked = restTemplate.postForEntity(url("/api/v1/auth/login"), correctLogin, Map.class);
@@ -95,7 +96,7 @@ class PasswordManagementIT extends AbstractIntegrationTest {
         ResponseEntity<Map> reset = restTemplate.postForEntity(url("/api/v1/auth/reset-password"), resetRequest, Map.class);
 
         assertThat(reset.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(reset.getBody().get("errorCode")).isEqualTo("INVALID_RESET_TOKEN");
+        assertThat(reset.getBody().get("errorCode")).isEqualTo(ErrorCode.INVALID_RESET_TOKEN.name());
     }
 
     @Test
@@ -113,7 +114,7 @@ class PasswordManagementIT extends AbstractIntegrationTest {
         ResponseEntity<Map> reset = restTemplate.postForEntity(url("/api/v1/auth/reset-password"), resetRequest, Map.class);
 
         assertThat(reset.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(reset.getBody().get("errorCode")).isEqualTo("PASSWORD_MISMATCH");
+        assertThat(reset.getBody().get("errorCode")).isEqualTo(ErrorCode.PASSWORD_MISMATCH.name());
     }
 
     @Test
@@ -131,7 +132,8 @@ class PasswordManagementIT extends AbstractIntegrationTest {
                         "confirmNewPassword", "BrandNewPass1!"), authHeaders(token));
         ResponseEntity<Map> wrongCurrentResponse = restTemplate.postForEntity(
                 url("/api/v1/auth/change-password"), wrongCurrent, Map.class);
-        assertThat(wrongCurrentResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(wrongCurrentResponse.getStatusCode()).isEqualTo(ErrorCode.INCORRECT_CURRENT_PASSWORD.status());
+        assertThat(wrongCurrentResponse.getBody().get("errorCode")).isEqualTo(ErrorCode.INCORRECT_CURRENT_PASSWORD.name());
 
         HttpEntity<Map<String, Object>> mismatchedConfirm = new HttpEntity<>(
                 Map.of("currentPassword", "SecurePass123!", "newPassword", "BrandNewPass1!",
@@ -139,7 +141,7 @@ class PasswordManagementIT extends AbstractIntegrationTest {
         ResponseEntity<Map> mismatchedConfirmResponse = restTemplate.postForEntity(
                 url("/api/v1/auth/change-password"), mismatchedConfirm, Map.class);
         assertThat(mismatchedConfirmResponse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(mismatchedConfirmResponse.getBody().get("errorCode")).isEqualTo("PASSWORD_MISMATCH");
+        assertThat(mismatchedConfirmResponse.getBody().get("errorCode")).isEqualTo(ErrorCode.PASSWORD_MISMATCH.name());
 
         HttpEntity<Map<String, Object>> correctCurrent = new HttpEntity<>(
                 Map.of("currentPassword", "SecurePass123!", "newPassword", "BrandNewPass1!",
@@ -161,14 +163,14 @@ class PasswordManagementIT extends AbstractIntegrationTest {
         // Immediate reuse (same as current password) is rejected even before any history exists.
         ResponseEntity<Map> reuseCurrent = changePassword(token, "SecurePass123!", "SecurePass123!");
         assertThat(reuseCurrent.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(reuseCurrent.getBody().get("errorCode")).isEqualTo("PASSWORD_REUSED");
+        assertThat(reuseCurrent.getBody().get("errorCode")).isEqualTo(ErrorCode.PASSWORD_REUSED.name());
 
         assertThat(changePassword(token, "SecurePass123!", "ChangeOne12!").getStatusCode()).isEqualTo(HttpStatus.OK);
 
         // The password from signup (now one change back) is still within the last-4 window.
         ResponseEntity<Map> reuseSignupPassword = changePassword(token, "ChangeOne12!", "SecurePass123!");
         assertThat(reuseSignupPassword.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(reuseSignupPassword.getBody().get("errorCode")).isEqualTo("PASSWORD_REUSED");
+        assertThat(reuseSignupPassword.getBody().get("errorCode")).isEqualTo(ErrorCode.PASSWORD_REUSED.name());
 
         assertThat(changePassword(token, "ChangeOne12!", "ChangeTwo12!").getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(changePassword(token, "ChangeTwo12!", "ChangeThr12!").getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -201,7 +203,7 @@ class PasswordManagementIT extends AbstractIntegrationTest {
                 "confirmNewPassword", "SecurePass123!");
         ResponseEntity<Map> reuseResponse = restTemplate.postForEntity(url("/api/v1/auth/reset-password"), reuseRequest, Map.class);
         assertThat(reuseResponse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(reuseResponse.getBody().get("errorCode")).isEqualTo("PASSWORD_REUSED");
+        assertThat(reuseResponse.getBody().get("errorCode")).isEqualTo(ErrorCode.PASSWORD_REUSED.name());
 
         // The one-time code above was consumed by the rejected attempt too - request a fresh one.
         restTemplate.postForEntity(url("/api/v1/auth/forgot-password"), Map.of("email", email), Map.class);
@@ -219,6 +221,6 @@ class PasswordManagementIT extends AbstractIntegrationTest {
         ResponseEntity<Map> response = restTemplate.postForEntity(url("/api/v1/auth/signup"), signupRequest, Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody().get("errorCode")).isEqualTo("VALIDATION_ERROR");
+        assertThat(response.getBody().get("errorCode")).isEqualTo(ErrorCode.VALIDATION_ERROR.name());
     }
 }

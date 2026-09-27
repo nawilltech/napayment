@@ -2,8 +2,8 @@ package ng.com.nawill.pay.payments.bankaccount;
 
 import java.util.UUID;
 import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.exception.ConflictException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.bankverification.BankVerificationGateway.ResolvedAccount;
@@ -56,7 +56,7 @@ public class BankAccountService {
         // Checked before Name Enquiry so a duplicate never spends a provider call.
         if (bankAccountRepository.existsByBusinessIdAndBankIdAndAccountNumberAndStatus(
                 businessId, request.bankId(), request.accountNumber(), EntityStatus.ACTIVE)) {
-            throw new ConflictException("This bank account is already registered for the business");
+            throw new ApiException(ErrorCode.BANK_ACCOUNT_ALREADY_REGISTERED);
         }
         // Name Enquiry (doc 3 §3): the account holder's name is always the
         // provider-resolved one, never client-supplied - closes a
@@ -69,7 +69,7 @@ public class BankAccountService {
 
     private void requireBusinessExists(UUID businessId) {
         if (!bankAccountRepository.businessExists(businessId)) {
-            throw new ResourceNotFoundException("Business not found: " + businessId);
+            throw new ApiException(ErrorCode.BUSINESS_NOT_FOUND);
         }
     }
 }
