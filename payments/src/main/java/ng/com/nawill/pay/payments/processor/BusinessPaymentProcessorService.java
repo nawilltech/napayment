@@ -51,6 +51,9 @@ public class BusinessPaymentProcessorService {
     public BusinessPaymentProcessorResponse set(UUID businessId, UUID processorId, boolean enabled) {
         businessAccess.requireExists(businessId);
         PaymentProcessor processor = processorService.require(processorId);
+        if (processor.isArchived()) {
+            throw new ApiException(ErrorCode.PAYMENT_PROCESSOR_ARCHIVED);
+        }
         settingRepository.findByBusinessIdAndProcessorId(businessId, processorId).ifPresentOrElse(
                 setting -> setting.setEnabled(enabled),
                 () -> settingRepository.save(new BusinessPaymentProcessor(businessId, processor, enabled)));

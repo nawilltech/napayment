@@ -31,7 +31,7 @@ class PaymentMethodCatalogIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void createsEditsAndDeletesAnUnusedMethodAndRejectsDuplicates() {
+    void createsAndEditsAMethodAndRejectsDuplicates() {
         String code = "M_" + unique();
         ResponseEntity<Map> created = adminExchange(HttpMethod.POST, METHODS,
                 Map.of("code", code.toLowerCase(), "name", "Mobile money " + code, "description", "Wallet push", "displayOrder", 60));
@@ -53,12 +53,10 @@ class PaymentMethodCatalogIT extends AbstractIntegrationTest {
         assertThat(updated.getBody().get("description")).isNull();
         assertThat(((Number) updated.getBody().get("displayOrder")).intValue()).isEqualTo(5);
 
-        assertThat(adminExchange(HttpMethod.DELETE, METHODS + "/" + id, null).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertError(adminExchange(HttpMethod.GET, METHODS + "/" + id, null), ErrorCode.PAYMENT_METHOD_NOT_FOUND);
     }
 
     @Test
-    void aMethodInUseCanOnlyBeDeactivatedAndDeactivationStopsItsPayments() {
+    void deactivatingStopsPaymentsAndArchivingHidesTheMethodWithoutDeletingIt() {
         String code = "W_" + unique();
         String id = (String) adminExchange(HttpMethod.POST, METHODS, Map.of("code", code, "name", "Wallet " + code))
                 .getBody().get("id");
@@ -71,7 +69,6 @@ class PaymentMethodCatalogIT extends AbstractIntegrationTest {
         assertThat(collect(token, account, code).getBody().get("paymentMethod")).isEqualTo(code);
         assertThat(((Number) adminExchange(HttpMethod.GET, METHODS + "/" + id, null).getBody().get("processorCount")).intValue())
                 .isEqualTo(1);
-        assertError(adminExchange(HttpMethod.DELETE, METHODS + "/" + id, null), ErrorCode.PAYMENT_METHOD_IN_USE);
 
         assertError(adminExchange(HttpMethod.POST, METHODS + "/" + id + "/deactivate", Map.of("password", "wrong")),
                 ErrorCode.PASSWORD_CONFIRMATION_FAILED);
@@ -82,6 +79,27 @@ class PaymentMethodCatalogIT extends AbstractIntegrationTest {
 
         adminExchange(HttpMethod.POST, METHODS + "/" + id + "/activate", superAdminPasswordConfirmation());
         assertThat(collect(token, account, code).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<Map> archived = adminExchange(HttpMethod.POST, METHODS + "/" + id + "/archive",
+                superAdminPasswordConfirmation());
+        assertThat(archived.getBody().get("status")).isEqualTo("INACTIVE");
+        assertThat(methodCodes(false)).doesNotContain(code);
+        assertThat(methodCodes(true)).contains(code);
+        assertError(collect(token, account, code), ErrorCode.PAYMENT_METHOD_UNAVAILABLE);
+        assertError(adminExchange(HttpMethod.PUT, "/api/v1/admin/payment-processors/" + createPaymentProcessor()
+                + "/methods/" + code, null), ErrorCode.PAYMENT_METHOD_ARCHIVED);
+        assertError(adminExchange(HttpMethod.POST, METHODS + "/" + id + "/activate", superAdminPasswordConfirmation()),
+                ErrorCode.PAYMENT_METHOD_ARCHIVED);
+
+        assertThat(adminExchange(HttpMethod.POST, METHODS + "/" + id + "/restore", null).getBody().get("archivedAt")).isNull();
+        assertThat(methodCodes(false)).contains(code);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> methodCodes(boolean archived) {
+        ResponseEntity<List> list = restTemplate.exchange(url(METHODS + "?archived=" + archived), HttpMethod.GET,
+                new HttpEntity<>(authHeaders(superAdminToken())), List.class);
+        return ((List<Map<String, Object>>) list.getBody()).stream().map(row -> (String) row.get("code")).toList();
     }
 
     @Test

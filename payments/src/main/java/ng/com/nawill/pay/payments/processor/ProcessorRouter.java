@@ -39,7 +39,7 @@ public class ProcessorRouter {
         Map<UUID, Boolean> settings = businessId == null ? Map.of()
                 : settingRepository.findByBusinessId(businessId).stream()
                         .collect(Collectors.toMap(s -> s.getProcessor().getId(), BusinessPaymentProcessor::isEnabled));
-        return processorRepository.findAllByOrderByPriorityAscNameAsc().stream()
+        return processorRepository.findByArchivedAtIsNullOrderByPriorityAscNameAsc().stream()
                 .map(processor -> ProcessorAvailability.of(processor, settings.get(processor.getId())))
                 .toList();
     }
@@ -72,7 +72,7 @@ public class ProcessorRouter {
     public List<PaymentMethod> availableMethods(UUID businessId) {
         List<PaymentProcessor> available = availabilityFor(businessId).stream()
                 .filter(ProcessorAvailability::available).map(ProcessorAvailability::processor).toList();
-        return methodRepository.findAllByOrderByDisplayOrderAscNameAsc().stream()
+        return methodRepository.findByArchivedAtIsNullOrderByDisplayOrderAscNameAsc().stream()
                 .filter(PaymentMethod::isActive)
                 .filter(method -> available.stream().anyMatch(p -> p.offers(method.getCode())))
                 .toList();

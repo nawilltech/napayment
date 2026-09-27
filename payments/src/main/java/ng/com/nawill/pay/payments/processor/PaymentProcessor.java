@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +41,9 @@ public class PaymentProcessor extends BaseEntity {
     /** Optional base64 data URL (validated by {@link ProcessorLogo}); null = no logo. */
     @Column(name = "logo", columnDefinition = "TEXT")
     private String logo;
+    /** Archived (soft-deleted): hidden from lists and new use, kept for history; null = not archived. */
+    @Column(name = "archived_at")
+    private Instant archivedAt;
 
     @OneToMany(mappedBy = "processor", cascade = CascadeType.ALL)
     @OrderBy("method")
@@ -124,5 +128,24 @@ public class PaymentProcessor extends BaseEntity {
 
     private Optional<PaymentProcessorMethod> findMethod(String method) {
         return methods.stream().filter(m -> m.getMethod().equals(method)).findFirst();
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+    /** Hides it and stops new use; nothing is deleted, so history still resolves and it can be restored. */
+    public void archive() {
+        setStatus(EntityStatus.INACTIVE);
+        this.archivedAt = Instant.now();
+    }
+
+    /** Back in lists, still inactive - reactivating is a separate, deliberate step. */
+    public void restore() {
+        this.archivedAt = null;
     }
 }

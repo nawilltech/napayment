@@ -9,12 +9,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentProcessorRepository extends JpaRepository<PaymentProcessor, UUID> {
 
-    Page<PaymentProcessor> findByNameContainingIgnoreCase(String term, Pageable pageable);
+    Page<PaymentProcessor> findByArchivedAtIsNull(Pageable pageable);
+
+    Page<PaymentProcessor> findByArchivedAtIsNotNull(Pageable pageable);
+
+    Page<PaymentProcessor> findByArchivedAtIsNullAndNameContainingIgnoreCase(String term, Pageable pageable);
+
+    Page<PaymentProcessor> findByArchivedAtIsNotNullAndNameContainingIgnoreCase(String term, Pageable pageable);
 
     /** Routing candidates, highest priority (lowest number) first. */
     List<PaymentProcessor> findByStatusOrderByPriorityAscNameAsc(EntityStatus status);
 
-    List<PaymentProcessor> findAllByOrderByPriorityAscNameAsc();
+    /** Every processor that isn't archived, priority order - routing and per-business views. */
+    List<PaymentProcessor> findByArchivedAtIsNullOrderByPriorityAscNameAsc();
 
     boolean existsByNameIgnoreCase(String name);
 

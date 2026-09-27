@@ -9,13 +9,13 @@ import java.util.UUID;
 import ng.com.nawill.pay.payments.processor.PasswordConfirmationRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** The platform's payment method catalogue (FR-Proc-2). */
@@ -30,11 +30,11 @@ public class AdminPaymentMethodController {
         this.service = service;
     }
 
-    @Operation(summary = "List payment methods, in display order")
+    @Operation(summary = "List payment methods in display order - archived ones only with archived=true")
     @GetMapping
     @PreAuthorize("@auth.can('platform-processors:read')")
-    public List<PaymentMethodResponse> list() {
-        return service.list();
+    public List<PaymentMethodResponse> list(@RequestParam(defaultValue = "false") boolean archived) {
+        return service.list(archived);
     }
 
     @Operation(summary = "Get a payment method")
@@ -73,11 +73,17 @@ public class AdminPaymentMethodController {
         return service.setActive(id, false, request.password());
     }
 
-    @Operation(summary = "Delete an unused payment method")
-    @DeleteMapping("/{id}")
+    @Operation(summary = "Archive a payment method: deactivate and hide it, keeping history (requires password)")
+    @PostMapping("/{id}/archive")
     @PreAuthorize("@auth.can('platform-processors:manage')")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        service.delete(id);
-        return ResponseEntity.noContent().build();
+    public PaymentMethodResponse archive(@PathVariable UUID id, @Valid @RequestBody PasswordConfirmationRequest request) {
+        return service.archive(id, request.password());
+    }
+
+    @Operation(summary = "Restore an archived payment method (it stays inactive until reactivated)")
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("@auth.can('platform-processors:manage')")
+    public PaymentMethodResponse restore(@PathVariable UUID id) {
+        return service.restore(id);
     }
 }

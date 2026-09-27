@@ -3,6 +3,7 @@ package ng.com.nawill.pay.payments.paymentmethod;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import ng.com.nawill.pay.common.entity.BaseEntity;
 import ng.com.nawill.pay.common.entity.EntityStatus;
 
@@ -31,6 +32,9 @@ public class PaymentMethod extends BaseEntity {
 
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
+    /** Archived (soft-deleted): hidden from lists and new use, kept for history; null = not archived. */
+    @Column(name = "archived_at")
+    private Instant archivedAt;
 
     protected PaymentMethod() {
     }
@@ -72,5 +76,24 @@ public class PaymentMethod extends BaseEntity {
 
     public void setDisplayOrder(int displayOrder) {
         this.displayOrder = displayOrder;
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+    /** Hides it and stops new use; nothing is deleted, so history still resolves and it can be restored. */
+    public void archive() {
+        setStatus(EntityStatus.INACTIVE);
+        this.archivedAt = Instant.now();
+    }
+
+    /** Back in lists, still inactive - reactivating is a separate, deliberate step. */
+    public void restore() {
+        this.archivedAt = null;
     }
 }

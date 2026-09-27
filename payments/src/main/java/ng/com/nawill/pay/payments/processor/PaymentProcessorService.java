@@ -75,11 +75,15 @@ public class PaymentProcessorService {
         return toResponse(processor);
     }
 
+    /** Hides archived processors unless {@code archived} asks for exactly those. */
     @Transactional(readOnly = true)
-    public Page<PaymentProcessorResponse> list(String term, Pageable pageable) {
-        Page<PaymentProcessor> page = (term == null || term.isBlank())
-                ? repository.findAll(pageable)
-                : repository.findByNameContainingIgnoreCase(term.trim(), pageable);
+    public Page<PaymentProcessorResponse> list(String term, boolean archived, Pageable pageable) {
+        boolean search = term != null && !term.isBlank();
+        Page<PaymentProcessor> page = archived
+                ? (search ? repository.findByArchivedAtIsNotNullAndNameContainingIgnoreCase(term.trim(), pageable)
+                        : repository.findByArchivedAtIsNotNull(pageable))
+                : (search ? repository.findByArchivedAtIsNullAndNameContainingIgnoreCase(term.trim(), pageable)
+                        : repository.findByArchivedAtIsNull(pageable));
         return page.map(this::toResponse);
     }
 
@@ -135,6 +139,9 @@ public class PaymentProcessorService {
     /** Platform switch: INACTIVE stops every business using it; business settings are kept. */
     public PaymentProcessorResponse setActive(UUID id, boolean active, String password) {
         PaymentProcessor processor = require(id);
+        if (active && processor.isArchived()) {
+            throw new ApiException(ErrorCode.PAYMENT_PROCESSOR_ARCHIVED);
+        }
         confirmPassword(password);
         processor.setStatus(active ? EntityStatus.ACTIVE : EntityStatus.INACTIVE);
         audit(active ? AuditEventType.PAYMENT_PROCESSOR_ACTIVATED : AuditEventType.PAYMENT_PROCESSOR_DEACTIVATED,
@@ -153,6 +160,26 @@ public class PaymentProcessorService {
         audit(enabled ? AuditEventType.PAYMENT_PROCESSOR_ENABLED_FOR_ALL : AuditEventType.PAYMENT_PROCESSOR_DISABLED_FOR_ALL,
                 processor, "clearedBusinessSettings=" + cleared);
         return new ForAllBusinessesResponse(toResponse(processor), cleared);
+    }
+
+    /**
+     * Soft delete (never a hard delete): deactivates and hides it; history
+     * still resolves and it can be restored. Its business settings are kept.
+     */
+    public PaymentProcessorResponse archive(UUID id, String password) {
+        PaymentProcessor processor = require(id);
+        confirmPassword(password);
+        processor.archive();
+        audit(AuditEventType.PAYMENT_PROCESSOR_ARCHIVED, processor, null);
+        return toResponse(processor);
+    }
+
+    /** Back in the lists, still inactive until someone reactivates it. */
+    public PaymentProcessorResponse restore(UUID id) {
+        PaymentProcessor processor = require(id);
+        processor.restore();
+        audit(AuditEventType.PAYMENT_PROCESSOR_RESTORED, processor, null);
+        return toResponse(processor);
     }
 
     PaymentProcessor require(UUID id) {

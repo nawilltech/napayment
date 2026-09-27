@@ -42,9 +42,13 @@ public class PaymentMethodService {
         this.auditRecorder = auditRecorder;
     }
 
+    /** Hides archived methods unless {@code archived} asks for exactly those. */
     @Transactional(readOnly = true)
-    public List<PaymentMethodResponse> list() {
-        return repository.findAllByOrderByDisplayOrderAscNameAsc().stream().map(this::toResponse).toList();
+    public List<PaymentMethodResponse> list(boolean archived) {
+        List<PaymentMethod> methods = archived
+                ? repository.findByArchivedAtIsNotNullOrderByDisplayOrderAscNameAsc()
+                : repository.findByArchivedAtIsNullOrderByDisplayOrderAscNameAsc();
+        return methods.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -90,21 +94,30 @@ public class PaymentMethodService {
     /** Platform-wide switch: an inactive method can't be used by any processor for new payments. */
     public PaymentMethodResponse setActive(UUID id, boolean active, String password) {
         PaymentMethod method = require(id);
+        if (active && method.isArchived()) {
+            throw new ApiException(ErrorCode.PAYMENT_METHOD_ARCHIVED);
+        }
         passwordConfirmation.confirm(currentUserResolver.requireCurrentUser().userId(), password);
         method.setStatus(active ? EntityStatus.ACTIVE : EntityStatus.INACTIVE);
         audit(active ? AuditEventType.PAYMENT_METHOD_ACTIVATED : AuditEventType.PAYMENT_METHOD_DEACTIVATED, method, null);
         return toResponse(method);
     }
 
-    /** Only while nothing references it - otherwise deactivate. */
-    public void delete(UUID id) {
+    /** Soft delete (never a hard delete): deactivates and hides it; processors and history keep the code. */
+    public PaymentMethodResponse archive(UUID id, String password) {
         PaymentMethod method = require(id);
-        if (repository.countProcessorsOffering(method.getCode()) > 0
-                || repository.countTransactionsUsing(method.getCode()) > 0) {
-            throw new ApiException(ErrorCode.PAYMENT_METHOD_IN_USE);
-        }
-        repository.delete(method);
-        audit(AuditEventType.PAYMENT_METHOD_DELETED, method, null);
+        passwordConfirmation.confirm(currentUserResolver.requireCurrentUser().userId(), password);
+        method.archive();
+        audit(AuditEventType.PAYMENT_METHOD_ARCHIVED, method, null);
+        return toResponse(method);
+    }
+
+    /** Back in the catalogue, still inactive until someone reactivates it. */
+    public PaymentMethodResponse restore(UUID id) {
+        PaymentMethod method = require(id);
+        method.restore();
+        audit(AuditEventType.PAYMENT_METHOD_RESTORED, method, null);
+        return toResponse(method);
     }
 
     /** Every catalogue method by code - for labelling processors' methods in responses. */
@@ -113,13 +126,15 @@ public class PaymentMethodService {
         return repository.findAll().stream().collect(Collectors.toMap(PaymentMethod::getCode, Function.identity()));
     }
 
-    /** Normalises codes and fails with PAYMENT_METHOD_NOT_FOUND if any isn't in the catalogue. */
+    /** Normalises codes for new use by a processor: each must be in the catalogue and not archived. */
     @Transactional(readOnly = true)
     public List<String> requireCodes(Collection<String> codes) {
         List<String> normalised = codes.stream().map(code -> code.trim().toUpperCase(Locale.ROOT)).distinct().toList();
         normalised.forEach(code -> {
-            if (!repository.existsByCode(code)) {
-                throw new ApiException(ErrorCode.PAYMENT_METHOD_NOT_FOUND);
+            PaymentMethod method = repository.findByCode(code)
+                    .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_METHOD_NOT_FOUND));
+            if (method.isArchived()) {
+                throw new ApiException(ErrorCode.PAYMENT_METHOD_ARCHIVED);
             }
         });
         return normalised;

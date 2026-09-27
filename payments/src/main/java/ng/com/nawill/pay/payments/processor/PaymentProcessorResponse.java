@@ -23,6 +23,8 @@ public record PaymentProcessorResponse(
         List<PaymentMethodOption> methods,
         long businessesSwitchedOn,
         long businessesSwitchedOff,
+        /** When it was archived (hidden from lists, kept for history); null = not archived. */
+        Instant archivedAt,
         Instant createdAt
 ) {
 
@@ -32,6 +34,6 @@ public record PaymentProcessorResponse(
                 processor.getLogo(), processor.getPriority(), processor.getStatus(), processor.isDefaultEnabled(),
                 processor.getMethods().stream()
                         .map(m -> PaymentMethodOption.of(m.getMethod(), m.isActive(), catalogue)).toList(),
-                switchedOn, switchedOff, processor.getCreatedAt());
+                switchedOn, switchedOff, processor.getArchivedAt(), processor.getCreatedAt());
     }
 }

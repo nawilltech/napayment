@@ -9,8 +9,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, UUID> {
 
-    /** The catalogue in display order. */
-    List<PaymentMethod> findAllByOrderByDisplayOrderAscNameAsc();
+    /** The catalogue (not archived) in display order. */
+    List<PaymentMethod> findByArchivedAtIsNullOrderByDisplayOrderAscNameAsc();
+
+    List<PaymentMethod> findByArchivedAtIsNotNullOrderByDisplayOrderAscNameAsc();
 
     Optional<PaymentMethod> findByCode(String code);
 
@@ -23,7 +25,4 @@ public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, UU
     /** How many processors list this method (offered or retired). */
     @Query("SELECT COUNT(m) FROM PaymentProcessorMethod m WHERE m.method = :code")
     long countProcessorsOffering(@Param("code") String code);
-
-    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.paymentMethod = :code")
-    long countTransactionsUsing(@Param("code") String code);
 }

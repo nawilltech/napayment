@@ -53,8 +53,9 @@ FR-Admin-5):
 `payment_methods` table): permanent `code` (referenced by processors'
 methods and transactions, enforced by foreign keys), editable name,
 description and display order, and a platform-wide ON/OFF.
-`PaymentMethodService` + `AdminPaymentMethodController` provide CRUD; delete
-only works while nothing references the method, otherwise deactivate.
+`PaymentMethodService` + `AdminPaymentMethodController` provide CRUD. Nothing
+is ever hard-deleted: archive (`archived_at`) hides a method and deactivates
+it; restore brings it back inactive.
 Seeded (V0048) with TRANSFER (Bank transfer, the default), CARD, USSD,
 BANK_DEBIT and QR.
 
@@ -128,10 +129,11 @@ dependency on either implementation).
 | `POST /api/v1/admin/payment-methods` | `platform-processors:manage` | Add a method |
 | `PATCH /api/v1/admin/payment-methods/{id}` | `platform-processors:manage` | Rename / describe / reorder |
 | `POST /api/v1/admin/payment-methods/{id}/activate` \| `/deactivate` | `platform-processors:manage` + password | Platform-wide switch |
-| `DELETE /api/v1/admin/payment-methods/{id}` | `platform-processors:manage` | Delete while unused (else 409 `PAYMENT_METHOD_IN_USE`) |
+| `POST /api/v1/admin/payment-methods/{id}/archive` \| `/restore` | `platform-processors:manage` (+ password to archive) | Soft delete: deactivate and hide (`?archived=true` lists them) / bring back, still inactive |
 | `POST /api/v1/admin/payment-processors` | `platform-processors:manage` | Add a processor with its methods |
 | `GET /api/v1/admin/payment-processors`, `/{id}` | `platform-processors:read` | List (by priority) / fetch |
 | `PATCH /api/v1/admin/payment-processors/{id}` | `platform-processors:manage` | Rename / reprioritise |
+| `POST /api/v1/admin/payment-processors/{id}/archive` \| `/restore` | `platform-processors:manage` (+ password to archive) | Soft delete: deactivate and hide from lists and business views (`?archived=true` lists them) / bring back, still inactive |
 | `PUT` / `DELETE /api/v1/admin/payment-processors/{id}/logo` | `platform-processors:manage` | Set / remove the optional logo (base64 data URL, PNG/JPEG/WebP, max 100 KB - `ProcessorLogo`) |
 | `PUT` / `DELETE /api/v1/admin/payment-processors/{id}/methods/{method}` | `platform-processors:manage` | Add or re-enable / disable a method |
 | `POST /api/v1/admin/payment-processors/{id}/activate` \| `/deactivate` | `platform-processors:manage` + password | Platform-wide switch |
