@@ -20,7 +20,8 @@ public record CreatePaymentProcessorRequest(
                 message = "must be 2-32 letters, digits or underscores, starting with a letter") String code,
         @Min(0) @Max(1000) Integer priority,
         Boolean defaultEnabled,
-        @NotEmpty Set<PaymentMethod> methods,
+        /** payment_methods codes, e.g. TRANSFER, CARD. */
+        @NotEmpty Set<String> methods,
         /** Optional base64 data URL - see {@link ProcessorLogo}. */
         String logo
 ) {

@@ -12,7 +12,6 @@ import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccount;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccountRepository;
 import ng.com.nawill.pay.payments.platform.BusinessAccess;
-import ng.com.nawill.pay.payments.processor.PaymentMethod;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
 import ng.com.nawill.pay.payments.processor.PaymentProcessorGateway;
 import ng.com.nawill.pay.payments.processor.ProcessorRouter;
@@ -120,7 +119,7 @@ public class TransactionService {
     private Transaction process(CreateTransactionRequest request, String idempotencyKey, VirtualAccount virtualAccount) {
         UUID businessId = virtualAccount.getBusinessId();
         businessAccess.requireActive(businessId);
-        PaymentMethod method = request.paymentMethodOrDefault();
+        String method = request.paymentMethodOrDefault();
         PaymentProcessor processor = request.paymentProcessorId() == null
                 ? processorRouter.route(businessId, method)
                 : processorRouter.requireUsable(request.paymentProcessorId(), businessId, method);

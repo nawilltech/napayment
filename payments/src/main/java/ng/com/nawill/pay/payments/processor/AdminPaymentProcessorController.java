@@ -4,8 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
@@ -34,13 +32,6 @@ public class AdminPaymentProcessorController {
 
     public AdminPaymentProcessorController(PaymentProcessorService service) {
         this.service = service;
-    }
-
-    @Operation(summary = "List every payment method the platform supports")
-    @GetMapping("/payment-methods")
-    @PreAuthorize("@auth.can('platform-processors:read')")
-    public List<PaymentMethodResponse> paymentMethods() {
-        return Arrays.stream(PaymentMethod.values()).map(m -> PaymentMethodResponse.of(m, true)).toList();
     }
 
     @Operation(summary = "Add a payment processor with its payment methods")
@@ -92,14 +83,14 @@ public class AdminPaymentProcessorController {
     @Operation(summary = "Add or re-enable a payment method on a processor")
     @PutMapping("/payment-processors/{id}/methods/{method}")
     @PreAuthorize("@auth.can('platform-processors:manage')")
-    public PaymentProcessorResponse enableMethod(@PathVariable UUID id, @PathVariable PaymentMethod method) {
+    public PaymentProcessorResponse enableMethod(@PathVariable UUID id, @PathVariable String method) {
         return service.enableMethod(id, method);
     }
 
     @Operation(summary = "Disable a payment method on a processor (history kept)")
     @DeleteMapping("/payment-processors/{id}/methods/{method}")
     @PreAuthorize("@auth.can('platform-processors:manage')")
-    public PaymentProcessorResponse disableMethod(@PathVariable UUID id, @PathVariable PaymentMethod method) {
+    public PaymentProcessorResponse disableMethod(@PathVariable UUID id, @PathVariable String method) {
         return service.disableMethod(id, method);
     }
 

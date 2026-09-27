@@ -8,6 +8,7 @@ import ng.com.nawill.pay.common.audit.AuditRecorder;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.payments.paymentmethod.PaymentMethodService;
 import ng.com.nawill.pay.payments.platform.BusinessAccess;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,25 +24,28 @@ public class BusinessPaymentProcessorService {
     private final BusinessAccess businessAccess;
     private final CurrentUserResolver currentUserResolver;
     private final AuditRecorder auditRecorder;
+    private final PaymentMethodService methodService;
 
     public BusinessPaymentProcessorService(BusinessPaymentProcessorRepository settingRepository,
                                            PaymentProcessorService processorService,
                                            ProcessorRouter processorRouter,
                                            BusinessAccess businessAccess,
                                            CurrentUserResolver currentUserResolver,
-                                           AuditRecorder auditRecorder) {
+                                           AuditRecorder auditRecorder,
+                                           PaymentMethodService methodService) {
         this.settingRepository = settingRepository;
         this.processorService = processorService;
         this.processorRouter = processorRouter;
         this.businessAccess = businessAccess;
         this.currentUserResolver = currentUserResolver;
         this.auditRecorder = auditRecorder;
+        this.methodService = methodService;
     }
 
     @Transactional(readOnly = true)
     public List<BusinessPaymentProcessorResponse> list(UUID businessId) {
         businessAccess.requireExists(businessId);
-        return processorRouter.availabilityFor(businessId).stream().map(BusinessPaymentProcessorResponse::from).toList();
+        return processorRouter.availabilityFor(businessId).stream().map(a -> BusinessPaymentProcessorResponse.from(a, methodService.byCode())).toList();
     }
 
     public BusinessPaymentProcessorResponse set(UUID businessId, UUID processorId, boolean enabled) {
@@ -68,7 +72,7 @@ public class BusinessPaymentProcessorService {
         return processorRouter.availabilityFor(businessId).stream()
                 .filter(a -> a.processor().getId().equals(processorId))
                 .findFirst()
-                .map(BusinessPaymentProcessorResponse::from)
+                .map(a -> BusinessPaymentProcessorResponse.from(a, methodService.byCode()))
                 .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_PROCESSOR_NOT_FOUND));
     }
 

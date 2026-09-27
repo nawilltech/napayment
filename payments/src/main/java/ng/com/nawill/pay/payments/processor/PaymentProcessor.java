@@ -88,11 +88,11 @@ public class PaymentProcessor extends BaseEntity {
         return methods;
     }
 
-    public boolean offers(PaymentMethod method) {
+    public boolean offers(String method) {
         return findMethod(method).filter(PaymentProcessorMethod::isActive).isPresent();
     }
 
-    public List<PaymentMethod> activeMethods() {
+    public List<String> activeMethods() {
         return methods.stream().filter(PaymentProcessorMethod::isActive).map(PaymentProcessorMethod::getMethod).toList();
     }
 
@@ -109,20 +109,20 @@ public class PaymentProcessor extends BaseEntity {
     }
 
     /** Adds the method, or re-enables it if it was retired. */
-    public void enableMethod(PaymentMethod method) {
+    public void enableMethod(String method) {
         findMethod(method).ifPresentOrElse(
                 existing -> existing.setStatus(EntityStatus.ACTIVE),
                 () -> methods.add(new PaymentProcessorMethod(this, method)));
     }
 
     /** Retires the method; returns false if this processor never offered it. */
-    public boolean disableMethod(PaymentMethod method) {
+    public boolean disableMethod(String method) {
         Optional<PaymentProcessorMethod> existing = findMethod(method);
         existing.ifPresent(m -> m.setStatus(EntityStatus.INACTIVE));
         return existing.isPresent();
     }
 
-    private Optional<PaymentProcessorMethod> findMethod(PaymentMethod method) {
-        return methods.stream().filter(m -> m.getMethod() == method).findFirst();
+    private Optional<PaymentProcessorMethod> findMethod(String method) {
+        return methods.stream().filter(m -> m.getMethod().equals(method)).findFirst();
     }
 }

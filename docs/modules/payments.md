@@ -35,9 +35,8 @@ FR-Admin-5):
   its env-var keys; secrets are never stored), `priority` (lower routes
   first), `defaultEnabled` ("for all businesses") and the inherited status
   as the platform-wide switch. Owns its `PaymentProcessorMethod` children.
-- `PaymentMethod` — the fixed enum (`TRANSFER, CARD, USSD, BANK_DEBIT, QR`)
-  with display labels; `PaymentProcessorMethod` rows are retired (INACTIVE),
-  never deleted.
+- `PaymentProcessorMethod` — a processor's method, referencing a catalogue
+  method by its code; retired (INACTIVE), never deleted.
 - `BusinessPaymentProcessor` — a business's own ON/OFF for one processor.
   Only exceptions are stored: no row = follow `defaultEnabled`.
 - `ProcessorRouter` — **the one place the availability rule lives**:
@@ -49,6 +48,15 @@ FR-Admin-5):
   `AuditRecorder`.
 - `PaymentProcessorGateway` / `SandboxPaymentProcessorGateway` — the
   charge call itself; still sandboxed (always succeeds).
+
+**paymentmethod** — the payment method catalogue (`PaymentMethod` entity,
+`payment_methods` table): permanent `code` (referenced by processors'
+methods and transactions, enforced by foreign keys), editable name,
+description and display order, and a platform-wide ON/OFF.
+`PaymentMethodService` + `AdminPaymentMethodController` provide CRUD; delete
+only works while nothing references the method, otherwise deactivate.
+Seeded (V0048) with TRANSFER (Bank transfer, the default), CARD, USSD,
+BANK_DEBIT and QR.
 
 **platform** — contracts payments needs from modules it can't depend on
 (onboarding-auth-rbac implements them, like `TransactionPinGateway`):
@@ -116,7 +124,11 @@ dependency on either implementation).
 | `GET /api/v1/virtual-accounts` | `virtualaccounts:read` | List caller's virtual account(s) |
 | `POST /api/v1/transactions` | `transactions:create` | Create a transaction (`@Idempotent`) |
 | `GET /api/v1/transactions/{id}` | `transactions:read` | Fetch a transaction (ownership-checked) |
-| `GET /api/v1/admin/payment-methods` | `platform-processors:read` | Every payment method the platform supports |
+| `GET /api/v1/admin/payment-methods`, `/{id}` | `platform-processors:read` | The payment method catalogue, in display order |
+| `POST /api/v1/admin/payment-methods` | `platform-processors:manage` | Add a method |
+| `PATCH /api/v1/admin/payment-methods/{id}` | `platform-processors:manage` | Rename / describe / reorder |
+| `POST /api/v1/admin/payment-methods/{id}/activate` \| `/deactivate` | `platform-processors:manage` + password | Platform-wide switch |
+| `DELETE /api/v1/admin/payment-methods/{id}` | `platform-processors:manage` | Delete while unused (else 409 `PAYMENT_METHOD_IN_USE`) |
 | `POST /api/v1/admin/payment-processors` | `platform-processors:manage` | Add a processor with its methods |
 | `GET /api/v1/admin/payment-processors`, `/{id}` | `platform-processors:read` | List (by priority) / fetch |
 | `PATCH /api/v1/admin/payment-processors/{id}` | `platform-processors:manage` | Rename / reprioritise |
@@ -183,8 +195,9 @@ mechanism itself.
 
 ## How to extend it
 
-- **New payment method**: add it to `PaymentMethod` (with its label) and
-  the frontend's `PAYMENT_METHODS` mirror; nothing else is hard-coded.
+- **New payment method**: add it in the admin console (Configuration →
+  Payment methods) - no code change. Only integrating a processor's actual
+  support for it needs code.
 - **Anything that moves money** must call `BusinessAccess.requireActive`
   and, if it takes a payment, go through `TransactionService` so
   `ProcessorRouter` picks (or validates) the processor - never read

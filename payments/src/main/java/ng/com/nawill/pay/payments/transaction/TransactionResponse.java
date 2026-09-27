@@ -3,7 +3,6 @@ package ng.com.nawill.pay.payments.transaction;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.UUID;
-import ng.com.nawill.pay.payments.processor.PaymentMethod;
 
 public record TransactionResponse(
         UUID id,
@@ -14,7 +13,8 @@ public record TransactionResponse(
         String sessionId,
         UUID virtualAccountId,
         UUID paymentProcessorId,
-        PaymentMethod paymentMethod,
+        /** A payment_methods code; null for a peer-to-peer transfer leg. */
+        String paymentMethod,
         UUID transferGroupId,
         UUID counterpartyAccountId,
         Instant createdAt

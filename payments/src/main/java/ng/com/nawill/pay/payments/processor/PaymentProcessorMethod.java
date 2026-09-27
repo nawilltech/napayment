@@ -2,8 +2,6 @@ package ng.com.nawill.pay.payments.processor;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -24,19 +22,19 @@ public class PaymentProcessorMethod extends BaseEntity {
     @JoinColumn(name = "processor_id", nullable = false)
     private PaymentProcessor processor;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "method", nullable = false, length = 16)
-    private PaymentMethod method;
+    /** A payment_methods.code (the catalogue's permanent identifier). */
+    @Column(name = "method", nullable = false, length = 32)
+    private String method;
 
     protected PaymentProcessorMethod() {
     }
 
-    PaymentProcessorMethod(PaymentProcessor processor, PaymentMethod method) {
+    PaymentProcessorMethod(PaymentProcessor processor, String method) {
         this.processor = processor;
         this.method = method;
     }
 
-    public PaymentMethod getMethod() {
+    public String getMethod() {
         return method;
     }
 

@@ -96,7 +96,7 @@ class ProcessorRoutingIT extends AbstractIntegrationTest {
                 HttpMethod.GET, HttpEntity.EMPTY, Map.class);
         assertThat(checkout.getBody().get("shortCode")).isEqualTo(link.getBody().get("shortCode"));
         assertThat(((List<Map<String, Object>>) checkout.getBody().get("availableMethods")).stream().map(m -> m.get("label")))
-                .containsExactly("Transfer", "Card");
+                .containsExactly("Bank transfer", "Card");
     }
 
     private ResponseEntity<Map> collect(String method, String processorId) {
