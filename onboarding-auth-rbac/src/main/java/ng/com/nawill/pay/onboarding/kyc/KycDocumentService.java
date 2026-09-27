@@ -83,18 +83,33 @@ public class KycDocumentService {
 
     @Transactional(readOnly = true)
     public List<KycDocument> list() {
-        CurrentUser currentUser = currentUserResolver.requireBusinessScope();
-        return kycDocumentRepository.findByBusinessId(currentUser.businessId());
+        return listForBusiness(currentUserResolver.requireBusinessScope().businessId());
+    }
+
+    /** Any business's documents - for platform KYC review; authorisation is enforced by the caller. */
+    @Transactional(readOnly = true)
+    public List<KycDocument> listForBusiness(UUID businessId) {
+        return kycDocumentRepository.findByBusinessId(businessId);
     }
 
     @Transactional(readOnly = true)
     public LoadedFile download(UUID documentId) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
-        KycDocument document = kycDocumentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        KycDocument document = find(documentId);
         if (!document.getBusinessId().equals(currentUser.businessId())) {
             throw new ForbiddenException("Document does not belong to the caller's business");
         }
         return fileStorageGateway.load(document.getStorageKey());
+    }
+
+    /** Platform KYC review: any business's document. Authorisation is enforced by the calling controller. */
+    @Transactional(readOnly = true)
+    public LoadedFile downloadForReview(UUID documentId) {
+        return fileStorageGateway.load(find(documentId).getStorageKey());
+    }
+
+    private KycDocument find(UUID documentId) {
+        return kycDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
     }
 }

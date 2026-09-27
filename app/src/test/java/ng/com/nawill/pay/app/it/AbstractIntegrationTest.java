@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.app.it;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -10,6 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -154,5 +161,83 @@ public abstract class AbstractIntegrationTest {
     protected List<Map<String, Object>> getPagedContent(String path, HttpHeaders headers) {
         ResponseEntity<Map> response = restTemplate.exchange(url(path), HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         return (List<Map<String, Object>>) response.getBody().get("content");
+    }
+
+    // ---- KYC fixtures (shared by the onboarding and platform-admin suites) ----------------
+
+    static final List<String> KYC_DOCUMENT_TYPES =
+            List.of("CAC_CERTIFICATE", "MEMORANDUM_AND_ARTICLES", "PROOF_OF_ADDRESS", "DIRECTOR_VALID_ID");
+
+    @Autowired
+    protected JdbcTemplate jdbcTemplate;
+
+    protected UUID insertCountry() {
+        UUID id = UUID.randomUUID();
+        jdbcTemplate.update("INSERT INTO countries (id, name, iso3, currency) VALUES (?, ?, ?, ?)",
+                id, "Test Country " + id, id.toString().substring(0, 3).toUpperCase(), "NGN");
+        return id;
+    }
+
+    protected UUID insertState(UUID countryId) {
+        UUID id = UUID.randomUUID();
+        jdbcTemplate.update("INSERT INTO states (id, country_id, name, level) VALUES (?, ?, ?, ?)",
+                id, countryId, "Test State " + id, 1);
+        return id;
+    }
+
+    protected static Map<String, Object> businessKycDetailsRequest(UUID countryId, UUID stateId) {
+        return Map.of(
+                "registeredName", "Ada Ventures Ltd",
+                "cacNumber", "RC1234567",
+                "businessType", "LIMITED_LIABILITY",
+                "industry", "Fintech",
+                "countryId", countryId.toString(),
+                "stateId", stateId.toString(),
+                "addressLine", "1 Marina Street, Lagos"
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    protected Map<String, Object> uploadKycDocument(String bearerToken, String type, String fileName) {
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("type", type);
+        body.add("file", new ByteArrayResource("test kyc document content".getBytes()) {
+            @Override
+            public String getFilename() {
+                return fileName;
+            }
+        });
+
+        HttpHeaders headers = authHeaders(bearerToken);
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        ResponseEntity<Map> response = restTemplate.exchange(
+                url("/api/v1/kyc/documents"), HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        return response.getBody();
+    }
+
+    /** Takes a freshly signed-up business all the way to PENDING_REVIEW: details, all 4 documents, submit. */
+    protected void submitCompleteKyc(String bearerToken) {
+        UUID countryId = insertCountry();
+        restTemplate.exchange(url("/api/v1/business/kyc/details"), HttpMethod.PUT,
+                new HttpEntity<>(businessKycDetailsRequest(countryId, insertState(countryId)), authHeaders(bearerToken)),
+                Map.class);
+        KYC_DOCUMENT_TYPES.forEach(type -> uploadKycDocument(bearerToken, type, type.toLowerCase() + ".pdf"));
+        ResponseEntity<Map> submitted = restTemplate.exchange(
+                url("/api/v1/kyc/submit"), HttpMethod.POST, new HttpEntity<>(authHeaders(bearerToken)), Map.class);
+        assertThat(submitted.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * A fresh ACTIVE payment processor, created as SUPERADMIN. Anything that
+     * records a transaction (collect, transactions, transfers) needs one to
+     * exist - create it explicitly rather than relying on another test class
+     * having run first.
+     */
+    protected String createPaymentProcessor() {
+        ResponseEntity<Map> response = restTemplate.exchange(url("/api/v1/payment-processors"), HttpMethod.POST,
+                new HttpEntity<>(Map.of("name", "Processor-" + UUID.randomUUID()), authHeaders(superAdminToken())),
+                Map.class);
+        return (String) response.getBody().get("id");
     }
 }

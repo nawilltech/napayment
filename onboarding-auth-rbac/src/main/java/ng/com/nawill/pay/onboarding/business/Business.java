@@ -60,6 +60,15 @@ public class Business extends BaseEntity {
     @Column(name = "cac_verification_source", length = 32)
     private String cacVerificationSource;
 
+    @Column(name = "kyc_reviewed_at")
+    private Instant kycReviewedAt;
+
+    @Column(name = "kyc_reviewed_by")
+    private UUID kycReviewedBy;
+
+    @Column(name = "kyc_review_note", length = 512)
+    private String kycReviewNote;
+
     protected Business() {
     }
 
@@ -129,6 +138,18 @@ public class Business extends BaseEntity {
         return cacVerificationSource;
     }
 
+    public Instant getKycReviewedAt() {
+        return kycReviewedAt;
+    }
+
+    public UUID getKycReviewedBy() {
+        return kycReviewedBy;
+    }
+
+    public String getKycReviewNote() {
+        return kycReviewNote;
+    }
+
     public void updateKycDetails(String registeredName, String cacNumber, BusinessType businessType,
                                   String industry, UUID countryId, UUID stateId, String addressLine,
                                   CacLookupResult cacLookupResult) {
@@ -148,5 +169,24 @@ public class Business extends BaseEntity {
     public void submitKycForReview() {
         this.kycStatus = KycStatus.PENDING_REVIEW;
         this.kycSubmittedAt = Instant.now();
+        // A resubmission starts a fresh review - the previous decision no longer applies.
+        this.kycReviewedAt = null;
+        this.kycReviewedBy = null;
+        this.kycReviewNote = null;
+    }
+
+    /** FR-3 platform review outcome. Callers check {@link #isAwaitingKycReview()} first. */
+    public void recordKycDecision(KycStatus decision, UUID reviewerId, String note) {
+        if (decision != KycStatus.VERIFIED && decision != KycStatus.REJECTED) {
+            throw new IllegalArgumentException("A KYC decision is VERIFIED or REJECTED, not " + decision);
+        }
+        this.kycStatus = decision;
+        this.kycReviewedAt = Instant.now();
+        this.kycReviewedBy = reviewerId;
+        this.kycReviewNote = note;
+    }
+
+    public boolean isAwaitingKycReview() {
+        return kycStatus == KycStatus.PENDING_REVIEW;
     }
 }

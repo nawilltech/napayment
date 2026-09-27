@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.kyc;
 
+import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
 import ng.com.nawill.pay.common.exception.BadRequestException;
@@ -86,9 +88,29 @@ public class OwnerIdentityService {
         }
     }
 
+    /**
+     * Platform KYC review: any business's owner identity, with BVN/NIN masked
+     * to the last 4 digits - reviewers need the verification outcome, not the
+     * full number. Authorisation is enforced by the caller.
+     */
+    @Transactional(readOnly = true)
+    public Optional<OwnerIdentityResponse> findMaskedForBusiness(UUID businessId) {
+        return ownerIdentityRepository.findByBusinessId(businessId)
+                .map(identity -> new OwnerIdentityResponse(masked(identity.getBvnEncrypted()),
+                        masked(identity.getNinEncrypted()), identity.isVerified()));
+    }
+
     private OwnerIdentityResponse toResponse(OwnerIdentity identity) {
-        String bvn = identity.getBvnEncrypted() == null ? null : encryptionService.decrypt(identity.getBvnEncrypted());
-        String nin = identity.getNinEncrypted() == null ? null : encryptionService.decrypt(identity.getNinEncrypted());
-        return new OwnerIdentityResponse(bvn, nin, identity.isVerified());
+        return new OwnerIdentityResponse(decrypt(identity.getBvnEncrypted()), decrypt(identity.getNinEncrypted()),
+                identity.isVerified());
+    }
+
+    private String decrypt(String encrypted) {
+        return encrypted == null ? null : encryptionService.decrypt(encrypted);
+    }
+
+    /** Absent stays absent - only a number that was actually provided gets masked. */
+    private String masked(String encrypted) {
+        return encrypted == null ? null : PiiMasker.maskKeepLast4(decrypt(encrypted));
     }
 }

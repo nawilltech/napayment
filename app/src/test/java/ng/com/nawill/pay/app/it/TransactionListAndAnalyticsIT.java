@@ -32,13 +32,7 @@ class TransactionListAndAnalyticsIT extends AbstractIntegrationTest {
 
         List<Map<String, Object>> accounts = getPagedContent("/api/v1/virtual-accounts", authHeaders(userToken));
         virtualAccountId = (String) accounts.get(0).get("id");
-
-        String adminToken = superAdminToken();
-        Map<String, Object> processorRequest = Map.of("name", "Paystack-" + UUID.randomUUID());
-        ResponseEntity<Map> processorResponse = restTemplate.exchange(
-                url("/api/v1/payment-processors"), HttpMethod.POST,
-                new HttpEntity<>(processorRequest, authHeaders(adminToken)), Map.class);
-        paymentProcessorId = (String) processorResponse.getBody().get("id");
+        paymentProcessorId = createPaymentProcessor();
     }
 
     @Test
@@ -107,11 +101,34 @@ class TransactionListAndAnalyticsIT extends AbstractIntegrationTest {
         assertThat(body.get("lowest")).isNull();
     }
 
+    @Test
+    void superAdminCanNarrowPlatformTransactionsToOneBusiness() {
+        createTransaction(1_000);
+        Map<String, Object> business = businessSignup("Bisi", "Adeyemi", "SecurePass123!");
+        String businessToken = (String) business.get("accessToken");
+        String businessAccountId = (String) getPagedContent("/api/v1/virtual-accounts", authHeaders(businessToken))
+                .get(0).get("id");
+        Map<String, Object> businessTxn = createTransaction(businessToken, businessAccountId, 2_500);
+        var adminHeaders = authHeaders(superAdminToken());
+
+        List<Map<String, Object>> narrowed = getPagedContent(
+                "/api/v1/transactions?size=100&businessId=" + business.get("businessId"), adminHeaders);
+        assertThat(narrowed).extracting(row -> row.get("id")).containsExactly(businessTxn.get("id"));
+
+        List<Map<String, Object>> otherBusiness = getPagedContent(
+                "/api/v1/transactions?businessId=" + UUID.randomUUID(), adminHeaders);
+        assertThat(otherBusiness).isEmpty();
+    }
+
     private Map<String, Object> createTransaction(int amount) {
-        var headers = authHeaders(userToken);
+        return createTransaction(userToken, virtualAccountId, amount);
+    }
+
+    private Map<String, Object> createTransaction(String token, String accountId, int amount) {
+        var headers = authHeaders(token);
         headers.set("Idempotency-Key", UUID.randomUUID().toString());
         Map<String, Object> request = Map.of(
-                "virtualAccountId", virtualAccountId,
+                "virtualAccountId", accountId,
                 "paymentProcessorId", paymentProcessorId,
                 "transactionType", "CREDIT",
                 "amount", amount

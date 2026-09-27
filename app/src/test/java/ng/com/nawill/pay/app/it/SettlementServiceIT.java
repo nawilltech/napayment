@@ -12,19 +12,14 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Manual settlement trigger and real-time auto-settle-on-credit (FR-Settle-1). */
 class SettlementServiceIT extends AbstractIntegrationTest {
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     private String businessToken;
     private String virtualAccountId;
@@ -43,11 +38,7 @@ class SettlementServiceIT extends AbstractIntegrationTest {
         virtualAccountId = (String) accounts.get(0).get("id");
 
         String adminToken = superAdminToken();
-        Map<String, Object> processorRequest = Map.of("name", "SandboxProcessor-" + UUID.randomUUID());
-        ResponseEntity<Map> processorResponse = restTemplate.exchange(
-                url("/api/v1/payment-processors"), HttpMethod.POST,
-                new HttpEntity<>(processorRequest, authHeaders(adminToken)), Map.class);
-        paymentProcessorId = (String) processorResponse.getBody().get("id");
+        paymentProcessorId = createPaymentProcessor();
 
         ensureCollectionAccountExists(adminToken);
 

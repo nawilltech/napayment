@@ -57,7 +57,9 @@ public class ApiKeyService {
         UUID businessId = currentUserResolver.requireBusinessScope().businessId();
         apiKeyRepository.findByBusinessIdAndStatus(businessId, EntityStatus.ACTIVE).ifPresent(existing -> {
             existing.setStatus(EntityStatus.INACTIVE);
-            apiKeyRepository.save(existing);
+            // Flush now: Hibernate orders INSERTs before UPDATEs at flush time, so without this the new
+            // key's insert hits idx_api_keys_business_id_active while the old key still reads ACTIVE.
+            apiKeyRepository.saveAndFlush(existing);
         });
         return issue(businessId);
     }

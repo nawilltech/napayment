@@ -5,12 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Nawill Pay's single pooled collection account (FR-Settle-2, doc 3 §2.5) -
@@ -21,9 +19,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * other IT class that might also touch this table.
  */
 class CollectionAccountIT extends AbstractIntegrationTest {
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     @Test
     void businessOwnerCannotCreateCollectionAccount() {

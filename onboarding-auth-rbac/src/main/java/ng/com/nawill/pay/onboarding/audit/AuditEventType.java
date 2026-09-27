@@ -25,6 +25,8 @@ public enum AuditEventType {
     OWNER_IDENTITY_SUBMITTED,
     KYC_DOCUMENT_UPLOADED,
     KYC_SUBMITTED,
+    KYC_APPROVED,
+    KYC_REJECTED,
     TEAM_INVITATION_CREATED,
     TEAM_INVITATION_REVOKED
     // Invite acceptance is recorded as SIGNUP_VIA_INVITE (AuthService) - the

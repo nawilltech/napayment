@@ -7,17 +7,10 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 
 /**
  * FR-8: business KYC details, owner identity (BVN/NIN, mocked verification),
@@ -25,9 +18,6 @@ import org.springframework.util.MultiValueMap;
  * that replaces napayment-fe's dev-store stand-in for these onboarding steps.
  */
 class OnboardingKycIT extends AbstractIntegrationTest {
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     private String token;
     private UUID countryId;
@@ -46,7 +36,7 @@ class OnboardingKycIT extends AbstractIntegrationTest {
                 url("/api/v1/business/kyc/details"), HttpMethod.GET, new HttpEntity<>(authHeaders(token)), Map.class);
         assertThat(before.getBody()).isNull();
 
-        Map<String, Object> request = businessDetailsRequest();
+        Map<String, Object> request = businessKycDetailsRequest(countryId, stateId);
         ResponseEntity<Map> put = restTemplate.exchange(
                 url("/api/v1/business/kyc/details"), HttpMethod.PUT, new HttpEntity<>(request, authHeaders(token)), Map.class);
         assertThat(put.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -79,7 +69,7 @@ class OnboardingKycIT extends AbstractIntegrationTest {
 
     @Test
     void documentUploadListDownloadAndCrossBusinessScoping() {
-        Map<String, Object> uploaded = uploadDocument(token, "CAC_CERTIFICATE", "cac.pdf");
+        Map<String, Object> uploaded = uploadKycDocument(token, "CAC_CERTIFICATE", "cac.pdf");
         assertThat(uploaded.get("type")).isEqualTo("CAC_CERTIFICATE");
 
         List<Map<String, Object>> docs = listDocuments(token);
@@ -106,7 +96,7 @@ class OnboardingKycIT extends AbstractIntegrationTest {
         assertThat(noDetails.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 
         restTemplate.exchange(url("/api/v1/business/kyc/details"), HttpMethod.PUT,
-                new HttpEntity<>(businessDetailsRequest(), authHeaders(token)), Map.class);
+                new HttpEntity<>(businessKycDetailsRequest(countryId, stateId), authHeaders(token)), Map.class);
 
         ResponseEntity<Map> missingDocs = restTemplate.exchange(
                 url("/api/v1/kyc/submit"), HttpMethod.POST, new HttpEntity<>(authHeaders(token)), Map.class);
@@ -114,7 +104,7 @@ class OnboardingKycIT extends AbstractIntegrationTest {
         assertThat((String) missingDocs.getBody().get("message")).contains("Missing documents");
 
         for (String type : List.of("CAC_CERTIFICATE", "MEMORANDUM_AND_ARTICLES", "PROOF_OF_ADDRESS", "DIRECTOR_VALID_ID")) {
-            uploadDocument(token, type, type.toLowerCase() + ".pdf");
+            uploadKycDocument(token, type, type.toLowerCase() + ".pdf");
         }
 
         ResponseEntity<Map> submitted = restTemplate.exchange(
@@ -123,55 +113,10 @@ class OnboardingKycIT extends AbstractIntegrationTest {
         assertThat(submitted.getBody().get("status")).isEqualTo("PENDING_REVIEW");
     }
 
-    private Map<String, Object> businessDetailsRequest() {
-        return Map.of(
-                "registeredName", "Ada Ventures Ltd",
-                "cacNumber", "RC1234567",
-                "businessType", "LIMITED_LIABILITY",
-                "industry", "Fintech",
-                "countryId", countryId.toString(),
-                "stateId", stateId.toString(),
-                "addressLine", "1 Marina Street, Lagos"
-        );
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> uploadDocument(String bearerToken, String type, String fileName) {
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("type", type);
-        body.add("file", new ByteArrayResource("test kyc document content".getBytes()) {
-            @Override
-            public String getFilename() {
-                return fileName;
-            }
-        });
-
-        HttpHeaders headers = authHeaders(bearerToken);
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        ResponseEntity<Map> response = restTemplate.exchange(
-                url("/api/v1/kyc/documents"), HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        return response.getBody();
-    }
-
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> listDocuments(String bearerToken) {
         ResponseEntity<List> response = restTemplate.exchange(
                 url("/api/v1/kyc/documents"), HttpMethod.GET, new HttpEntity<>(authHeaders(bearerToken)), List.class);
         return response.getBody();
-    }
-
-    private UUID insertCountry() {
-        UUID id = UUID.randomUUID();
-        jdbcTemplate.update("INSERT INTO countries (id, name, iso3, currency) VALUES (?, ?, ?, ?)",
-                id, "Test Country " + id, id.toString().substring(0, 3).toUpperCase(), "NGN");
-        return id;
-    }
-
-    private UUID insertState(UUID countryId) {
-        UUID id = UUID.randomUUID();
-        jdbcTemplate.update("INSERT INTO states (id, country_id, name, level) VALUES (?, ?, ?, ?)",
-                id, countryId, "Test State " + id, 1);
-        return id;
     }
 }
