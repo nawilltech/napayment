@@ -102,7 +102,7 @@ every other module.
 
 4. A platform SUPERADMIN is seeded automatically on first startup (see
    `SuperAdminSeeder`) using `AUTH_SUPERADMIN_EMAIL` / `AUTH_SUPERADMIN_PASSWORD`
-   (defaults in `dev`: `superadmin@nawill.com.ng` / `ChangeMe123!` — change
+   (defaults in `dev`: `nawilltechltd@gmail.com` / `SuperAdmin?1@` — change
    these for any non-local environment).
 
 ### Quick smoke test
