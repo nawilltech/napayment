@@ -3,9 +3,8 @@ package ng.com.nawill.pay.onboarding.auth;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.AccountLockedException;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.UnauthorizedException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
@@ -53,18 +52,18 @@ public class TransactionPinService implements TransactionPinGateway {
 
     public void setOrChangePin(SetTransactionPinRequest request) {
         if (!request.pin().equals(request.confirmPin())) {
-            throw new BadRequestException("PIN_MISMATCH", "PIN and confirm PIN do not match");
+            throw new ApiException(ErrorCode.PIN_MISMATCH);
         }
         CurrentUser currentUser = currentUserResolver.requireCurrentUser();
         User user = userRepository.findById(currentUser.userId())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + currentUser.userId()));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-            throw new UnauthorizedException("INVALID_CREDENTIALS", "Current password is incorrect");
+            throw new ApiException(ErrorCode.INCORRECT_CURRENT_PASSWORD);
         }
         if (user.hasPinSet()) {
             if (request.currentPin() == null || !passwordEncoder.matches(request.currentPin(), user.getPinHash())) {
-                throw new UnauthorizedException("INVALID_PIN", "Current PIN is incorrect");
+                throw new ApiException(ErrorCode.INCORRECT_CURRENT_PIN);
             }
         }
 
@@ -80,13 +79,13 @@ public class TransactionPinService implements TransactionPinGateway {
     public void verify(UUID userId, String pin) {
         Optional<Duration> locked = transactionPinAttemptService.lockedRemaining(userId.toString());
         if (locked.isPresent()) {
-            throw new AccountLockedException(lockedMessage(locked.get()));
+            throw new ApiException(ErrorCode.ACCOUNT_LOCKED, Lockout.minutesRemaining(locked.get()));
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + userId));
         if (!user.hasPinSet()) {
-            throw new BadRequestException("PIN_NOT_SET", "Set a transaction PIN before sending a transfer");
+            throw new ApiException(ErrorCode.PIN_NOT_SET);
         }
 
         if (!passwordEncoder.matches(pin, user.getPinHash())) {
@@ -96,20 +95,15 @@ public class TransactionPinService implements TransactionPinGateway {
                 log.warn("transfer capability locked after {} failed PIN attempts: userId={}", attempts, userId);
                 securityAuditService.record(AuditEventType.TRANSACTION_PIN_LOCKED, AuditOutcome.FAILURE, userId,
                         user.getBusinessId(), attempts + " failed PIN attempts");
-                throw new AccountLockedException(lockedMessage(transactionPinAttemptService.lockoutDuration()));
+                throw new ApiException(ErrorCode.ACCOUNT_LOCKED, Lockout.minutesRemaining(transactionPinAttemptService.lockoutDuration()));
             }
             securityAuditService.record(AuditEventType.TRANSACTION_PIN_VERIFICATION_FAILED, AuditOutcome.FAILURE,
                     userId, user.getBusinessId(),
                     "Incorrect transaction PIN (attempt " + attempts + "/" + transactionPinAttemptService.maxAttempts() + ")");
-            throw new UnauthorizedException("INVALID_PIN",
-                    "Incorrect transaction PIN (attempt " + attempts + "/" + transactionPinAttemptService.maxAttempts() + ")");
+            throw new ApiException(ErrorCode.INVALID_PIN, attempts, transactionPinAttemptService.maxAttempts());
         }
 
         transactionPinAttemptService.clear(userId.toString());
     }
 
-    private String lockedMessage(Duration remaining) {
-        long minutes = Math.max(1, remaining.toMinutes());
-        return "Too many incorrect PIN attempts. Try again in " + minutes + " minute(s).";
-    }
 }

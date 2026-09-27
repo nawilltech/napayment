@@ -4,7 +4,8 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.logging.PiiMasker;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
@@ -20,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,7 +79,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Transaction get(UUID id) {
         Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + id));
+                .orElseThrow(() -> new ApiException(ErrorCode.TRANSACTION_NOT_FOUND));
         assertOwnership(transaction.getVirtualAccount());
         return transaction;
     }
@@ -109,12 +109,12 @@ public class TransactionService {
         // ever replaces it (v0.2), re-scope this lock to just the ledger mutation
         // so the row isn't held across a network call.
         return virtualAccountRepository.findByIdForUpdate(virtualAccountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Virtual account not found: " + virtualAccountId));
+                .orElseThrow(() -> new ApiException(ErrorCode.VIRTUAL_ACCOUNT_NOT_FOUND));
     }
 
     private Transaction process(CreateTransactionRequest request, String idempotencyKey, VirtualAccount virtualAccount) {
         PaymentProcessor processor = paymentProcessorRepository.findById(request.paymentProcessorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Payment processor not found: " + request.paymentProcessorId()));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_PROCESSOR_NOT_FOUND));
 
         Transaction transaction = new Transaction(request.amount(), idempotencyKey, processor,
                 request.transactionType(), UUID.randomUUID().toString(), virtualAccount);
@@ -174,7 +174,7 @@ public class TransactionService {
         boolean owned = virtualAccount.isOwnedByUser(currentUser.userId())
                 || (currentUser.hasBusinessScope() && virtualAccount.isOwnedByBusiness(currentUser.businessId()));
         if (!owned) {
-            throw new AccessDeniedException("Virtual account does not belong to the caller");
+            throw new ApiException(ErrorCode.FORBIDDEN);
         }
     }
 

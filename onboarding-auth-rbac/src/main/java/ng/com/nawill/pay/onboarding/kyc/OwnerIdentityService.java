@@ -4,7 +4,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
-import ng.com.nawill.pay.common.exception.BadRequestException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.logging.PiiMasker;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
@@ -78,13 +79,13 @@ public class OwnerIdentityService {
         boolean hasBvn = request.bvn() != null && !request.bvn().isBlank();
         boolean hasNin = request.nin() != null && !request.nin().isBlank();
         if (!hasBvn && !hasNin) {
-            throw new BadRequestException("Provide either a BVN or an NIN");
+            throw new ApiException(ErrorCode.OWNER_ID_REQUIRED);
         }
         if (hasBvn && !ELEVEN_DIGITS.matcher(request.bvn()).matches()) {
-            throw new BadRequestException("BVN must be 11 digits");
+            throw new ApiException(ErrorCode.INVALID_BVN);
         }
         if (hasNin && !ELEVEN_DIGITS.matcher(request.nin()).matches()) {
-            throw new BadRequestException("NIN must be 11 digits");
+            throw new ApiException(ErrorCode.INVALID_NIN);
         }
     }
 

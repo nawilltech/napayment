@@ -4,7 +4,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import ng.com.nawill.pay.common.exception.BadRequestException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -59,7 +60,7 @@ public class CurrentUserResolver {
     public CurrentUser requireBusinessScope() {
         CurrentUser currentUser = requireCurrentUser();
         if (!currentUser.hasBusinessScope()) {
-            throw new BadRequestException("This operation is only available to business accounts");
+            throw new ApiException(ErrorCode.BUSINESS_ACCOUNT_REQUIRED);
         }
         return currentUser;
     }

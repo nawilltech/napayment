@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -92,9 +93,9 @@ class AdminBankAccountIT extends AbstractIntegrationTest {
                 new HttpEntity<>(authHeaders(token)), Map.class);
 
         assertThat(body.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(body.getBody().get("errorCode")).isEqualTo("VALIDATION_ERROR");
+        assertThat(body.getBody().get("errorCode")).isEqualTo(ErrorCode.VALIDATION_ERROR.name());
         assertThat(query.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(query.getBody().get("errorCode")).isEqualTo("VALIDATION_ERROR");
+        assertThat(query.getBody().get("errorCode")).isEqualTo(ErrorCode.VALIDATION_ERROR.name());
     }
 
     private static Map<String, Object> bankAccountRequest(UUID bankId, String accountNumber) {

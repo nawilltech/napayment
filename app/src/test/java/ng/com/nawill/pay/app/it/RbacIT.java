@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -27,7 +28,7 @@ class RbacIT extends AbstractIntegrationTest {
                 new HttpEntity<>(processorRequest, authHeaders(userToken)), Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(response.getBody().get("errorCode")).isEqualTo("FORBIDDEN");
+        assertThat(response.getBody().get("errorCode")).isEqualTo(ErrorCode.FORBIDDEN.name());
     }
 
     @Test

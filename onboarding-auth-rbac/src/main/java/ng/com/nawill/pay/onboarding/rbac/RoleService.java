@@ -1,7 +1,8 @@
 package ng.com.nawill.pay.onboarding.rbac;
 
 import java.util.List;
-import ng.com.nawill.pay.common.exception.BadRequestException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,12 +37,12 @@ public class RoleService {
     public Role createBusinessScopedRole(CreateRoleRequest request) {
         var currentUser = currentUserResolver.requireCurrentUser();
         if (!currentUser.hasBusinessScope()) {
-            throw new BadRequestException("Only a business-affiliated account can create scoped roles");
+            throw new ApiException(ErrorCode.BUSINESS_ACCOUNT_REQUIRED);
         }
 
         List<Permission> permissions = permissionRepository.findByNameIn(request.permissionNames());
         if (permissions.size() != request.permissionNames().size()) {
-            throw new BadRequestException("One or more permission names are unknown");
+            throw new ApiException(ErrorCode.UNKNOWN_PERMISSION);
         }
 
         Role role = roleRepository.save(new Role(request.name(), currentUser.businessId()));
@@ -57,7 +58,7 @@ public class RoleService {
     public Page<Role> listForCallerBusiness(String term, Pageable pageable) {
         var currentUser = currentUserResolver.requireCurrentUser();
         if (!currentUser.hasBusinessScope()) {
-            throw new BadRequestException("Only a business-affiliated account has scoped roles");
+            throw new ApiException(ErrorCode.BUSINESS_ACCOUNT_REQUIRED);
         }
         return (term == null || term.isBlank())
                 ? roleRepository.findByBusinessId(currentUser.businessId(), pageable)

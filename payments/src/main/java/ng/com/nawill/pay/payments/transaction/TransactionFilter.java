@@ -3,7 +3,8 @@ package ng.com.nawill.pay.payments.transaction;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.BadRequestException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 
 /**
  * The filter set shared by both the paginated transaction list and the
@@ -28,10 +29,10 @@ public record TransactionFilter(
 
     public TransactionFilter {
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new BadRequestException("INVALID_DATE_RANGE", "startDate must not be after endDate");
+            throw new ApiException(ErrorCode.INVALID_DATE_RANGE);
         }
         if (minAmount != null && maxAmount != null && minAmount.compareTo(maxAmount) > 0) {
-            throw new BadRequestException("INVALID_AMOUNT_RANGE", "minAmount must not be greater than maxAmount");
+            throw new ApiException(ErrorCode.INVALID_AMOUNT_RANGE);
         }
     }
 }

@@ -6,8 +6,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
@@ -78,9 +78,9 @@ public class PaymentLinkService {
     public void revoke(UUID linkId) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         PaymentLink link = paymentLinkRepository.findById(linkId)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment link not found: " + linkId));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_LINK_NOT_FOUND));
         if (!link.isOwnedByBusiness(currentUser.businessId())) {
-            throw new BadRequestException("Payment link does not belong to the caller's business");
+            throw new ApiException(ErrorCode.PAYMENT_LINK_NOT_FOUND);
         }
         link.revoke();
     }
@@ -88,7 +88,7 @@ public class PaymentLinkService {
     @Transactional(readOnly = true)
     public PaymentLink resolve(String shortCode) {
         return paymentLinkRepository.findByShortCode(shortCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment link not found: " + shortCode));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_LINK_NOT_FOUND));
     }
 
     /**
@@ -98,23 +98,22 @@ public class PaymentLinkService {
      */
     public Transaction pay(String shortCode, PayLinkRequest request, String idempotencyKey) {
         PaymentLink link = paymentLinkRepository.findByShortCodeForUpdate(shortCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment link not found: " + shortCode));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_LINK_NOT_FOUND));
 
         if (link.isExpired() && link.getLinkStatus() == PaymentLinkStatus.ACTIVE) {
             link.markExpired();
         }
         if (!link.isPayable()) {
-            throw new BadRequestException("PAYMENT_LINK_NOT_PAYABLE",
-                    "This payment link is " + link.getLinkStatus().name().toLowerCase() + " and cannot be paid");
+            throw new ApiException(ErrorCode.PAYMENT_LINK_NOT_PAYABLE, link.getLinkStatus().name().toLowerCase());
         }
 
         BigInteger amount = link.getAmount() != null ? link.getAmount() : request.amount();
         if (amount == null) {
-            throw new BadRequestException("AMOUNT_REQUIRED", "This payment link requires the payer to specify an amount");
+            throw new ApiException(ErrorCode.AMOUNT_REQUIRED);
         }
 
         PaymentProcessor processor = paymentProcessorRepository.findFirstByStatus(EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("No active payment processor configured"));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENTS_UNAVAILABLE));
 
         CreateTransactionRequest createRequest = new CreateTransactionRequest(
                 link.getVirtualAccount().getId(), processor.getId(), TransactionType.CREDIT, amount);
@@ -129,7 +128,7 @@ public class PaymentLinkService {
     private Instant resolveExpiry(CreatePaymentLinkRequest request) {
         if (request.linkType() == PaymentLinkType.PERMANENT) {
             if (request.expiresAt() != null) {
-                throw new BadRequestException("A permanent payment link cannot have an expiry");
+                throw new ApiException(ErrorCode.PAYMENT_LINK_EXPIRY_NOT_ALLOWED);
             }
             return null;
         }

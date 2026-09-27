@@ -6,8 +6,8 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccount;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccountRepository;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
@@ -62,19 +62,19 @@ public class SettlementService {
         // ordering every balance-mutating path in this codebase follows,
         // so concurrent settlements can never deadlock against each other.
         VirtualAccount virtualAccount = virtualAccountRepository.findByIdForUpdate(virtualAccountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Virtual account not found: " + virtualAccountId));
+                .orElseThrow(() -> new ApiException(ErrorCode.VIRTUAL_ACCOUNT_NOT_FOUND));
 
         List<SettlementAccount> settlementAccounts = settlementAccountRepository.findByVirtualAccountId(virtualAccountId);
         if (settlementAccounts.isEmpty()) {
-            throw new BadRequestException("NO_SETTLEMENT_ACCOUNTS", "No settlement accounts configured for this virtual account");
+            throw new ApiException(ErrorCode.NO_SETTLEMENT_ACCOUNTS);
         }
 
         BigInteger amount = requestedAmount != null ? requestedAmount : virtualAccount.getBalance();
         if (amount.compareTo(BigInteger.ZERO) <= 0) {
-            throw new BadRequestException("NOTHING_TO_SETTLE", "No available balance to settle");
+            throw new ApiException(ErrorCode.NOTHING_TO_SETTLE);
         }
         if (amount.compareTo(virtualAccount.getBalance()) > 0) {
-            throw new BadRequestException("INSUFFICIENT_BALANCE", "Requested settlement amount exceeds available balance");
+            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
 
         BigDecimal totalPercentage = settlementAccounts.stream()
@@ -85,11 +85,11 @@ public class SettlementService {
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
                 .toBigInteger();
         if (amountToSettle.compareTo(BigInteger.ZERO) <= 0) {
-            throw new BadRequestException("NOTHING_TO_SETTLE", "Configured split percentages settle to a zero amount");
+            throw new ApiException(ErrorCode.NOTHING_TO_SETTLE);
         }
 
         CollectionAccount collectionAccount = collectionAccountRepository.findActiveForUpdate()
-                .orElseThrow(() -> new ResourceNotFoundException("No active collection account has been configured"));
+                .orElseThrow(() -> new ApiException(ErrorCode.COLLECTION_ACCOUNT_NOT_FOUND));
 
         List<Settlement> results = disburse(virtualAccount, settlementAccounts, amountToSettle, totalPercentage, idempotencyKey);
 

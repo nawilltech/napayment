@@ -3,8 +3,8 @@ package ng.com.nawill.pay.payments.transfer;
 import java.math.BigInteger;
 import java.util.Optional;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.logging.PiiMasker;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
@@ -63,7 +63,7 @@ public class TransferService {
     @Transactional(readOnly = true)
     public TransferResolveResponse resolve(String identifier) {
         VirtualAccount recipient = resolveRecipientAccount(identifier)
-                .orElseThrow(() -> new ResourceNotFoundException("No Nawill account found for " + identifier));
+                .orElseThrow(() -> new ApiException(ErrorCode.RECIPIENT_NOT_FOUND, identifier));
         return new TransferResolveResponse(displayNameFor(recipient), PiiMasker.maskKeepLast4(recipient.getAccountNumber()));
     }
 
@@ -72,10 +72,9 @@ public class TransferService {
         VirtualAccount callerAccount = virtualAccountQueryService.requireSoleVirtualAccountForCaller();
 
         VirtualAccount recipientAccount = resolveRecipientAccount(request.recipientIdentifier())
-                .orElseThrow(() -> new BadRequestException("RECIPIENT_NOT_FOUND",
-                        "No Nawill account found for " + request.recipientIdentifier()));
+                .orElseThrow(() -> new ApiException(ErrorCode.RECIPIENT_NOT_FOUND, request.recipientIdentifier()));
         if (recipientAccount.getId().equals(callerAccount.getId())) {
-            throw new BadRequestException("SELF_TRANSFER", "You can't send money to yourself");
+            throw new ApiException(ErrorCode.SELF_TRANSFER);
         }
 
         // Checked before any row is locked - a wrong PIN should fail fast
@@ -95,10 +94,10 @@ public class TransferService {
         VirtualAccount recipient = callerFirst ? second : first;
 
         if (!sender.getCurrency().equals(recipient.getCurrency())) {
-            throw new BadRequestException("CURRENCY_MISMATCH", "Sender and recipient accounts use different currencies");
+            throw new ApiException(ErrorCode.CURRENCY_MISMATCH);
         }
         if (sender.getBalance().compareTo(request.amount()) < 0) {
-            throw new BadRequestException("INSUFFICIENT_BALANCE", "Insufficient balance for this transfer");
+            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
 
         UUID transferGroupId = UUID.randomUUID();
@@ -128,7 +127,7 @@ public class TransferService {
 
     private VirtualAccount lockAccount(UUID virtualAccountId) {
         return virtualAccountRepository.findByIdForUpdate(virtualAccountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Virtual account not found: " + virtualAccountId));
+                .orElseThrow(() -> new ApiException(ErrorCode.VIRTUAL_ACCOUNT_NOT_FOUND));
     }
 
     private Optional<VirtualAccount> resolveRecipientAccount(String identifier) {

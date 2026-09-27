@@ -4,8 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
@@ -47,10 +47,10 @@ public class KycSubmitService {
     public KycSubmitResponse submit() {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         Business business = businessRepository.findById(currentUser.businessId())
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found: " + currentUser.businessId()));
+                .orElseThrow(() -> new ApiException(ErrorCode.BUSINESS_NOT_FOUND));
 
         if (business.getKycDetailsUpdatedAt() == null) {
-            throw new BadRequestException("Complete business details first");
+            throw new ApiException(ErrorCode.KYC_DETAILS_INCOMPLETE);
         }
 
         Set<KycDocumentType> uploaded = kycDocumentRepository.findByBusinessId(currentUser.businessId()).stream()
@@ -60,8 +60,8 @@ public class KycSubmitService {
                 .filter(type -> !uploaded.contains(type))
                 .toList();
         if (!missing.isEmpty()) {
-            String names = missing.stream().map(Enum::name).collect(Collectors.joining(", "));
-            throw new BadRequestException("Missing documents: " + names);
+            String names = missing.stream().map(KycDocumentType::label).collect(Collectors.joining(", "));
+            throw new ApiException(ErrorCode.KYC_DOCUMENTS_MISSING, names);
         }
 
         business.submitKycForReview();

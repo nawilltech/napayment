@@ -6,7 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.idempotency.Idempotent;
 import ng.com.nawill.pay.common.idempotency.IdempotencyConstants;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
@@ -59,7 +60,7 @@ public class CollectController {
         String idempotencyKey = httpRequest.getHeader(IdempotencyConstants.HEADER);
         VirtualAccount virtualAccount = virtualAccountQueryService.requireSoleVirtualAccountForCaller();
         PaymentProcessor processor = paymentProcessorRepository.findFirstByStatus(EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("No active payment processor configured"));
+                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENTS_UNAVAILABLE));
 
         CreateTransactionRequest createRequest = new CreateTransactionRequest(
                 virtualAccount.getId(), processor.getId(), TransactionType.CREDIT, request.amount());

@@ -6,9 +6,8 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.AccountLockedException;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.UnauthorizedException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.audit.AuditEventType;
@@ -100,13 +99,13 @@ public class AuthService {
 
     public AuthResponse signup(SignupRequest request) {
         if (!request.password().equals(request.confirmPassword())) {
-            throw new BadRequestException("PASSWORD_MISMATCH", "Password and confirm password do not match");
+            throw new ApiException(ErrorCode.PASSWORD_MISMATCH);
         }
         if (userRepository.existsByEmail(request.email())) {
-            throw new BadRequestException("EMAIL_TAKEN", "An account with this email already exists");
+            throw new ApiException(ErrorCode.EMAIL_TAKEN);
         }
         if (userRepository.existsByPhoneNo(request.phoneNo())) {
-            throw new BadRequestException("PHONE_TAKEN", "An account with this phone number already exists");
+            throw new ApiException(ErrorCode.PHONE_TAKEN);
         }
 
         User user = new User(request.firstName(), request.middleName(), request.lastName(), request.email(),
@@ -144,13 +143,13 @@ public class AuthService {
     public AuthResponse signupViaInvite(AcceptInviteRequest request) {
         TeamInvitation invitation = teamInvitationRepository.findByToken(request.token())
                 .filter(i -> i.getInvitationStatus() == InvitationStatus.PENDING)
-                .orElseThrow(() -> new BadRequestException("INVALID_INVITE", "This invite is no longer valid"));
+                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_INVITE));
 
         if (userRepository.existsByEmail(invitation.getEmail())) {
-            throw new BadRequestException("EMAIL_TAKEN", "An account with this email already exists");
+            throw new ApiException(ErrorCode.EMAIL_TAKEN);
         }
         if (userRepository.existsByPhoneNo(request.phoneNo())) {
-            throw new BadRequestException("PHONE_TAKEN", "An account with this phone number already exists");
+            throw new ApiException(ErrorCode.PHONE_TAKEN);
         }
 
         User user = new User(request.firstName(), request.middleName(), request.lastName(), invitation.getEmail(),
@@ -180,7 +179,7 @@ public class AuthService {
         if (locked.isPresent()) {
             securityAuditService.record(AuditEventType.LOGIN, AuditOutcome.FAILURE, null, null, email,
                     "Attempted login while account locked");
-            throw new AccountLockedException(lockedMessage(locked.get()));
+            throw new ApiException(ErrorCode.ACCOUNT_LOCKED, Lockout.minutesRemaining(locked.get()));
         }
 
         Optional<User> maybeUser = userRepository.findByEmail(email);
@@ -195,13 +194,12 @@ public class AuthService {
                 log.warn("account locked after {} failed login attempts: email={}", attempts, email);
                 securityAuditService.record(AuditEventType.ACCOUNT_LOCKED, AuditOutcome.FAILURE, knownUserId, null,
                         email, attempts + " failed login attempts");
-                throw new AccountLockedException(lockedMessage(loginAttemptService.lockoutDuration()));
+                throw new ApiException(ErrorCode.ACCOUNT_LOCKED, Lockout.minutesRemaining(loginAttemptService.lockoutDuration()));
             }
             log.warn("failed login attempt {}/{}", attempts, loginAttemptService.maxAttempts());
             securityAuditService.record(AuditEventType.LOGIN, AuditOutcome.FAILURE, knownUserId, null, email,
                     "Invalid credentials (attempt " + attempts + "/" + loginAttemptService.maxAttempts() + ")");
-            throw new UnauthorizedException("INVALID_CREDENTIALS",
-                    "Invalid email or password (attempt " + attempts + "/" + loginAttemptService.maxAttempts() + ")");
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS, attempts, loginAttemptService.maxAttempts());
         }
 
         loginAttemptService.clear(email);
@@ -242,21 +240,20 @@ public class AuthService {
 
     public void resetPassword(ResetPasswordRequest request) {
         if (!request.newPassword().equals(request.confirmNewPassword())) {
-            throw new BadRequestException("PASSWORD_MISMATCH", "New password and confirm new password do not match");
+            throw new ApiException(ErrorCode.PASSWORD_MISMATCH);
         }
         boolean valid = passwordResetService.validateAndConsume(request.email(), request.token());
         if (!valid) {
             securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.FAILURE, null, null,
                     request.email(), "Invalid or expired reset code");
-            throw new BadRequestException("INVALID_RESET_TOKEN", "The reset code is invalid or has expired");
+            throw new ApiException(ErrorCode.INVALID_RESET_TOKEN);
         }
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadRequestException("INVALID_RESET_TOKEN", "The reset code is invalid or has expired"));
+                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_RESET_TOKEN));
         if (passwordHistoryService.isReused(user.getId(), request.newPassword(), user.getPasswordHash())) {
             securityAuditService.record(AuditEventType.PASSWORD_RESET_COMPLETED, AuditOutcome.FAILURE, user.getId(),
                     user.getBusinessId(), request.email(), "Rejected: matches a recently used password");
-            throw new BadRequestException("PASSWORD_REUSED",
-                    "You can't reuse one of your last 4 passwords. Choose a different password.");
+            throw new ApiException(ErrorCode.PASSWORD_REUSED, PasswordHistoryService.HISTORY_SIZE);
         }
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
@@ -276,7 +273,7 @@ public class AuthService {
     public AuthResponse refresh(RefreshTokenRequest request) {
         RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(request.refreshToken());
         User user = userRepository.findById(rotation.userId())
-                .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN", "Invalid refresh token"));
+                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_REFRESH_TOKEN));
 
         Set<String> permissions = permissionResolutionService.resolveFor(user.getId());
         String accessToken = jwtService.issueAccessToken(user.getId(), user.getBusinessId(),
@@ -292,7 +289,7 @@ public class AuthService {
 
     public void changePassword(ChangePasswordRequest request) {
         if (!request.newPassword().equals(request.confirmNewPassword())) {
-            throw new BadRequestException("PASSWORD_MISMATCH", "New password and confirm new password do not match");
+            throw new ApiException(ErrorCode.PASSWORD_MISMATCH);
         }
         CurrentUser currentUser = currentUserResolver.requireCurrentUser();
         User user = userRepository.findById(currentUser.userId())
@@ -300,13 +297,12 @@ public class AuthService {
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             securityAuditService.record(AuditEventType.PASSWORD_CHANGED, AuditOutcome.FAILURE, user.getId(),
                     user.getBusinessId(), "Current password did not match");
-            throw new UnauthorizedException("INVALID_CREDENTIALS", "Current password is incorrect");
+            throw new ApiException(ErrorCode.INCORRECT_CURRENT_PASSWORD);
         }
         if (passwordHistoryService.isReused(user.getId(), request.newPassword(), user.getPasswordHash())) {
             securityAuditService.record(AuditEventType.PASSWORD_CHANGED, AuditOutcome.FAILURE, user.getId(),
                     user.getBusinessId(), "Rejected: matches a recently used password");
-            throw new BadRequestException("PASSWORD_REUSED",
-                    "You can't reuse one of your last 4 passwords. Choose a different password.");
+            throw new ApiException(ErrorCode.PASSWORD_REUSED, PasswordHistoryService.HISTORY_SIZE);
         }
         user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
@@ -316,10 +312,6 @@ public class AuthService {
                 user.getBusinessId(), null);
     }
 
-    private String lockedMessage(Duration remaining) {
-        long minutes = Math.max(1, remaining.toMinutes());
-        return "Account locked due to too many failed login attempts. Try again in " + minutes + " minute(s).";
-    }
 
     private void assignDefaultRole(User user, String roleName) {
         Role role = roleRepository.findByNameAndBusinessIdIsNull(roleName)

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -50,7 +51,7 @@ class PaymentLinkIT extends AbstractIntegrationTest {
 
         ResponseEntity<Map> secondPay = pay(shortCode, Map.of());
         assertThat(secondPay.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(secondPay.getBody().get("errorCode")).isEqualTo("PAYMENT_LINK_NOT_PAYABLE");
+        assertThat(secondPay.getBody().get("errorCode")).isEqualTo(ErrorCode.PAYMENT_LINK_NOT_PAYABLE.name());
     }
 
     @Test
@@ -68,7 +69,7 @@ class PaymentLinkIT extends AbstractIntegrationTest {
 
         ResponseEntity<Map> pay = pay(shortCode, Map.of());
         assertThat(pay.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(pay.getBody().get("errorCode")).isEqualTo("PAYMENT_LINK_NOT_PAYABLE");
+        assertThat(pay.getBody().get("errorCode")).isEqualTo(ErrorCode.PAYMENT_LINK_NOT_PAYABLE.name());
     }
 
     @Test
@@ -86,7 +87,7 @@ class PaymentLinkIT extends AbstractIntegrationTest {
 
         ResponseEntity<Map> payWithoutAmount = pay(shortCode, Map.of());
         assertThat(payWithoutAmount.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(payWithoutAmount.getBody().get("errorCode")).isEqualTo("AMOUNT_REQUIRED");
+        assertThat(payWithoutAmount.getBody().get("errorCode")).isEqualTo(ErrorCode.AMOUNT_REQUIRED.name());
 
         ResponseEntity<Map> payWithAmount = pay(shortCode, Map.of("amount", 3000));
         assertThat(payWithAmount.getStatusCode()).isEqualTo(HttpStatus.OK);

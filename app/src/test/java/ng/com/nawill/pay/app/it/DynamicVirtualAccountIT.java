@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -39,7 +40,7 @@ class DynamicVirtualAccountIT extends AbstractIntegrationTest {
                 url("/api/v1/temporary-accounts/" + accountNumber + "/simulate-deposit"), HttpMethod.POST,
                 new HttpEntity<>(Map.of("amount", 3500), secondDepositHeaders), Map.class);
         assertThat(secondDeposit.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(secondDeposit.getBody().get("errorCode")).isEqualTo("DYNAMIC_ACCOUNT_NOT_DEPOSITABLE");
+        assertThat(secondDeposit.getBody().get("errorCode")).isEqualTo(ErrorCode.DYNAMIC_ACCOUNT_NOT_DEPOSITABLE.name());
     }
 
     @Test
@@ -60,7 +61,7 @@ class DynamicVirtualAccountIT extends AbstractIntegrationTest {
                 new HttpEntity<>(Map.of("amount", 1000), depositHeaders), Map.class);
 
         assertThat(deposit.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(deposit.getBody().get("errorCode")).isEqualTo("DYNAMIC_ACCOUNT_NOT_DEPOSITABLE");
+        assertThat(deposit.getBody().get("errorCode")).isEqualTo(ErrorCode.DYNAMIC_ACCOUNT_NOT_DEPOSITABLE.name());
     }
 
     @Test
@@ -78,6 +79,8 @@ class DynamicVirtualAccountIT extends AbstractIntegrationTest {
                 url("/api/v1/temporary-accounts/" + accountNumber + "/simulate-deposit"), HttpMethod.POST,
                 new HttpEntity<>(Map.of("amount", 2000), depositHeaders), Map.class);
 
-        assertThat(deposit.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        // Someone else's account is indistinguishable from a missing one.
+        assertThat(deposit.getStatusCode()).isEqualTo(ErrorCode.DYNAMIC_ACCOUNT_NOT_FOUND.status());
+        assertThat(deposit.getBody().get("errorCode")).isEqualTo(ErrorCode.DYNAMIC_ACCOUNT_NOT_FOUND.name());
     }
 }

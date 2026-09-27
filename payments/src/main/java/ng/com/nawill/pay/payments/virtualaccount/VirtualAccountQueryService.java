@@ -1,7 +1,8 @@
 package ng.com.nawill.pay.payments.virtualaccount;
 
 import java.util.List;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import org.springframework.data.domain.Page;
@@ -47,6 +48,6 @@ public class VirtualAccountQueryService {
      */
     public VirtualAccount requireSoleVirtualAccountForCaller() {
         return listForCaller().stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("No virtual account found for the caller"));
+                .orElseThrow(() -> new ApiException(ErrorCode.VIRTUAL_ACCOUNT_NOT_FOUND));
     }
 }

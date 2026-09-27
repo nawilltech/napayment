@@ -12,9 +12,9 @@ import java.util.UUID;
 public interface TransactionPinGateway {
 
     /**
-     * @throws ng.com.nawill.pay.common.exception.BadRequestException if the caller has never set a PIN
-     * @throws ng.com.nawill.pay.common.exception.UnauthorizedException if the PIN is wrong
-     * @throws ng.com.nawill.pay.common.exception.AccountLockedException if too many recent wrong attempts locked the transfer capability
+     * @throws ng.com.nawill.pay.common.exception.ApiException {@code PIN_NOT_SET} if the caller has never set a
+     *         PIN, {@code INVALID_PIN} if it is wrong, {@code ACCOUNT_LOCKED} if too many recent wrong attempts
+     *         locked the transfer capability
      */
     void verify(UUID userId, String pin);
 }

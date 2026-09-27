@@ -5,9 +5,8 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import ng.com.nawill.pay.common.exception.BadRequestException;
-import ng.com.nawill.pay.common.exception.ForbiddenException;
-import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
+import ng.com.nawill.pay.common.exception.ApiException;
+import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.common.storage.FileStorageGateway;
@@ -28,7 +27,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class KycDocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(KycDocumentService.class);
-    private static final long MAX_SIZE_BYTES = 10L * 1024 * 1024;
+    private static final long BYTES_PER_MB = 1024 * 1024;
+    private static final long MAX_SIZE_BYTES = 10 * BYTES_PER_MB;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("application/pdf", "image/png", "image/jpeg");
 
     private final KycDocumentRepository kycDocumentRepository;
@@ -47,13 +47,13 @@ public class KycDocumentService {
     public KycDocument upload(KycDocumentType type, MultipartFile file) {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         if (file == null || file.isEmpty()) {
-            throw new BadRequestException("Missing file");
+            throw new ApiException(ErrorCode.FILE_REQUIRED);
         }
         if (file.getSize() > MAX_SIZE_BYTES) {
-            throw new BadRequestException("File must be 10MB or smaller");
+            throw new ApiException(ErrorCode.FILE_TOO_LARGE, MAX_SIZE_BYTES / BYTES_PER_MB);
         }
         if (!ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
-            throw new BadRequestException("Only PDF, PNG, or JPEG files are accepted");
+            throw new ApiException(ErrorCode.FILE_TYPE_NOT_ALLOWED);
         }
 
         StoredFile stored;
@@ -97,7 +97,7 @@ public class KycDocumentService {
         CurrentUser currentUser = currentUserResolver.requireBusinessScope();
         KycDocument document = find(documentId);
         if (!document.getBusinessId().equals(currentUser.businessId())) {
-            throw new ForbiddenException("Document does not belong to the caller's business");
+            throw new ApiException(ErrorCode.FORBIDDEN);
         }
         return fileStorageGateway.load(document.getStorageKey());
     }
@@ -110,6 +110,6 @@ public class KycDocumentService {
 
     private KycDocument find(UUID documentId) {
         return kycDocumentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+                .orElseThrow(() -> new ApiException(ErrorCode.DOCUMENT_NOT_FOUND));
     }
 }
