@@ -187,11 +187,7 @@ class TransferIT extends AbstractIntegrationTest {
 
     private Wallet newFundedWallet(String firstName, String lastName, int amount) {
         Wallet wallet = newWallet(firstName, lastName);
-        String adminToken = superAdminToken();
-        Map<String, Object> processorRequest = Map.of("name", "Processor-" + UUID.randomUUID());
-        ResponseEntity<Map> processorResponse = restTemplate.exchange(url("/api/v1/payment-processors"), HttpMethod.POST,
-                new HttpEntity<>(processorRequest, authHeaders(adminToken)), Map.class);
-        String processorId = (String) processorResponse.getBody().get("id");
+        String processorId = createPaymentProcessor();
 
         var headers = authHeaders(wallet.token);
         headers.set("Idempotency-Key", UUID.randomUUID().toString());

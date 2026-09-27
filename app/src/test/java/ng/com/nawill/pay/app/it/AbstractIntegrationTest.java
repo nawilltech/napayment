@@ -155,4 +155,17 @@ public abstract class AbstractIntegrationTest {
         ResponseEntity<Map> response = restTemplate.exchange(url(path), HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         return (List<Map<String, Object>>) response.getBody().get("content");
     }
+
+    /**
+     * A fresh ACTIVE payment processor, created as SUPERADMIN. Anything that
+     * records a transaction (collect, transactions, transfers) needs one to
+     * exist - create it explicitly rather than relying on another test class
+     * having run first.
+     */
+    protected String createPaymentProcessor() {
+        ResponseEntity<Map> response = restTemplate.exchange(url("/api/v1/payment-processors"), HttpMethod.POST,
+                new HttpEntity<>(Map.of("name", "Processor-" + UUID.randomUUID()), authHeaders(superAdminToken())),
+                Map.class);
+        return (String) response.getBody().get("id");
+    }
 }
