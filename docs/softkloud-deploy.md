@@ -100,7 +100,7 @@ SMTP_FROM=noreply@nawill.ng
 FRONTEND_BASEURL=https://dev.napayment.nawill.ng
 
 AUTH_JWT_SECRET=<a long random string>
-AUTH_SUPERADMIN_EMAIL=superadmin@nawill.ng
+AUTH_SUPERADMIN_EMAIL=nawilltechltd@gmail.com
 AUTH_SUPERADMIN_PASSWORD=<a strong password - only used the very first boot to seed the account>
 
 NAWILL_ENCRYPTION_KEY=<base64-encoded 32 random bytes - see EncryptionService, AES-256>
