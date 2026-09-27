@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.team;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Team & Roles")
 @RestController
 @RequestMapping("/api/v1/team/invitations")
 public class TeamInvitationController {
@@ -24,6 +27,7 @@ public class TeamInvitationController {
         this.teamInvitationService = teamInvitationService;
     }
 
+    @Operation(summary = "Invite a team member with a role template")
     @PostMapping
     @PreAuthorize("@auth.can('roles:manage')")
     public ResponseEntity<InviteResponse> create(@Valid @RequestBody CreateInviteRequest request) {
@@ -32,6 +36,7 @@ public class TeamInvitationController {
                 .body(InviteResponse.from(invitation, teamInvitationService.inviteUrl(invitation)));
     }
 
+    @Operation(summary = "List the business's team invitations")
     @GetMapping
     @PreAuthorize("@auth.can('roles:manage')")
     public List<InviteResponse> list() {
@@ -40,6 +45,7 @@ public class TeamInvitationController {
                 .toList();
     }
 
+    @Operation(summary = "Revoke a pending team invitation")
     @DeleteMapping("/{id}")
     @PreAuthorize("@auth.can('roles:manage')")
     public OkResponse revoke(@PathVariable UUID id) {

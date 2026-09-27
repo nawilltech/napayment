@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.paymentlink;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Business-facing, JWT-authenticated payment link management (FR-14). */
+@Tag(name = "Payment Links", description = "The business's shareable payment links.")
 @RestController
 @RequestMapping("/api/v1/payment-links")
 public class PaymentLinkController {
@@ -29,6 +32,7 @@ public class PaymentLinkController {
         this.paymentLinkService = paymentLinkService;
     }
 
+    @Operation(summary = "Create a payment link")
     @PostMapping
     @Idempotent
     @PreAuthorize("@auth.can('paymentlinks:manage')")
@@ -38,6 +42,7 @@ public class PaymentLinkController {
                 .body(PaymentLinkResponse.from(link));
     }
 
+    @Operation(summary = "List the business's payment links")
     @GetMapping
     @PreAuthorize("@auth.can('paymentlinks:read')")
     public PageResponse<PaymentLinkResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,
@@ -46,6 +51,7 @@ public class PaymentLinkController {
                 paymentLinkService.listForCallerBusiness(PageRequest.of(page, size)).map(PaymentLinkResponse::from));
     }
 
+    @Operation(summary = "Revoke a payment link")
     @DeleteMapping("/{id}")
     @PreAuthorize("@auth.can('paymentlinks:manage')")
     public ResponseEntity<Void> revoke(@PathVariable UUID id) {

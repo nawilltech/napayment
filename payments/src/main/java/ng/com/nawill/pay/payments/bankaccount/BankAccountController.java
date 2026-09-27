@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.bankaccount;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import ng.com.nawill.pay.common.web.PageDefaults;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** A business's registered real bank accounts, later attached to a settlement config (FR-2). */
+@Tag(name = "Bank Accounts", description = "The business's own settlement bank accounts.")
 @RestController
 @RequestMapping("/api/v1/bank-accounts")
 public class BankAccountController {
@@ -25,6 +28,7 @@ public class BankAccountController {
         this.bankAccountService = bankAccountService;
     }
 
+    @Operation(summary = "Register a settlement bank account (name resolved via Name Enquiry)")
     @PostMapping
     @PreAuthorize("@auth.can('settlements:manage')")
     public ResponseEntity<BankAccountResponse> create(@Valid @RequestBody CreateBankAccountRequest request) {
@@ -33,6 +37,7 @@ public class BankAccountController {
                 .body(BankAccountResponse.from(bankAccount));
     }
 
+    @Operation(summary = "List the business's settlement bank accounts")
     @GetMapping
     @PreAuthorize("@auth.can('settlements:read')")
     public PageResponse<BankAccountResponse> list(@RequestParam(defaultValue = PageDefaults.PAGE) int page,

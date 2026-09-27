@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.processor;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Supply Admin (processors:configure) - the admin-only surface exercised by
  * the RBAC integration test.
  */
+@Tag(name = "Admin - Payment Processors", description = "Onboarding of payment processors.")
 @RestController
 @RequestMapping("/api/v1/payment-processors")
 public class PaymentProcessorController {
@@ -31,6 +34,7 @@ public class PaymentProcessorController {
         this.paymentProcessorService = paymentProcessorService;
     }
 
+    @Operation(summary = "Onboard a payment processor")
     @PostMapping
     @PreAuthorize("@auth.can('processors:configure')")
     public ResponseEntity<PaymentProcessorResponse> onboard(@Valid @RequestBody CreatePaymentProcessorRequest request) {
@@ -39,6 +43,7 @@ public class PaymentProcessorController {
                 .body(PaymentProcessorResponse.from(processor));
     }
 
+    @Operation(summary = "List payment processors")
     @GetMapping
     @PreAuthorize("@auth.can('processors:read')")
     public PageResponse<PaymentProcessorResponse> list(@RequestParam(required = false) String term,
@@ -48,6 +53,7 @@ public class PaymentProcessorController {
                 paymentProcessorService.list(term, PageRequest.of(page, size)).map(PaymentProcessorResponse::from));
     }
 
+    @Operation(summary = "Get a payment processor")
     @GetMapping("/{id}")
     @PreAuthorize("@auth.can('processors:read')")
     public PaymentProcessorResponse get(@PathVariable UUID id) {

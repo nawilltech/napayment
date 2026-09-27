@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.settlement;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Manual, JWT-authenticated settlement trigger - "settle on request" (FR-Settle-1). */
+@Tag(name = "Settlements")
 @RestController
 @RequestMapping("/api/v1/settlements")
 public class SettlementController {
@@ -27,6 +30,7 @@ public class SettlementController {
         this.virtualAccountQueryService = virtualAccountQueryService;
     }
 
+    @Operation(summary = "Settle the virtual account balance now")
     @PostMapping
     @Idempotent
     @PreAuthorize("@auth.can('settlements:manage')")

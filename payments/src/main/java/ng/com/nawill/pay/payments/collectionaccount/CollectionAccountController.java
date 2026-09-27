@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.collectionaccount;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * assigned to any seeded role, so only SUPERADMIN's blanket permission
  * bypass can reach these endpoints.
  */
+@Tag(name = "Admin - Collection Account", description = "Nawill Pay's single pooled collection account.")
 @RestController
 @RequestMapping("/api/v1/collection-account")
 public class CollectionAccountController {
@@ -25,6 +28,7 @@ public class CollectionAccountController {
         this.collectionAccountService = collectionAccountService;
     }
 
+    @Operation(summary = "Create the pooled collection account (name resolved via Name Enquiry)")
     @PostMapping
     @PreAuthorize("@auth.can('collection-account:manage')")
     public ResponseEntity<CollectionAccountResponse> create(@Valid @RequestBody CreateCollectionAccountRequest request) {
@@ -33,6 +37,7 @@ public class CollectionAccountController {
                 .body(CollectionAccountResponse.from(account));
     }
 
+    @Operation(summary = "Get the active pooled collection account and its balance")
     @GetMapping
     @PreAuthorize("@auth.can('collection-account:manage')")
     public CollectionAccountResponse get() {

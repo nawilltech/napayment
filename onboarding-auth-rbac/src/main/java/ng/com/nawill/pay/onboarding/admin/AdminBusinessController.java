@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import ng.com.nawill.pay.common.storage.LoadedFile;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** FR-3 platform admin: every business on the platform, and the KYC review queue. */
+@Tag(name = "Admin - Businesses & KYC", description = "Platform business directory and KYC review.")
 @RestController
 @RequestMapping("/api/v1/admin")
 public class AdminBusinessController {
@@ -33,6 +36,7 @@ public class AdminBusinessController {
         this.kycDocumentService = kycDocumentService;
     }
 
+    @Operation(summary = "List all businesses, with search and KYC status filter")
     @GetMapping("/businesses")
     @PreAuthorize("@auth.can('platform-businesses:read')")
     public PageResponse<AdminBusinessSummaryResponse> list(@RequestParam(required = false) String term,
@@ -42,30 +46,35 @@ public class AdminBusinessController {
         return PageResponse.from(adminBusinessService.list(term, kycStatus, page, size));
     }
 
+    @Operation(summary = "Count businesses per KYC status")
     @GetMapping("/businesses/stats")
     @PreAuthorize("@auth.can('platform-businesses:read')")
     public BusinessStatsResponse stats() {
         return adminBusinessService.stats();
     }
 
+    @Operation(summary = "Get a business's full KYC review details")
     @GetMapping("/businesses/{id}")
     @PreAuthorize("@auth.can('platform-businesses:read')")
     public AdminBusinessDetailResponse get(@PathVariable UUID id) {
         return adminBusinessService.get(id);
     }
 
+    @Operation(summary = "Approve a business's KYC")
     @PostMapping("/businesses/{id}/kyc/approve")
     @PreAuthorize("@auth.can('platform-kyc:review')")
     public AdminBusinessDetailResponse approveKyc(@PathVariable UUID id) {
         return adminBusinessService.approveKyc(id);
     }
 
+    @Operation(summary = "Reject a business's KYC with a reason")
     @PostMapping("/businesses/{id}/kyc/reject")
     @PreAuthorize("@auth.can('platform-kyc:review')")
     public AdminBusinessDetailResponse rejectKyc(@PathVariable UUID id, @Valid @RequestBody RejectKycRequest request) {
         return adminBusinessService.rejectKyc(id, request.reason());
     }
 
+    @Operation(summary = "Download any business's KYC document for review")
     @GetMapping("/kyc-documents/{id}/download")
     @PreAuthorize("@auth.can('platform-kyc:review')")
     public ResponseEntity<InputStreamResource> downloadDocument(@PathVariable UUID id) {

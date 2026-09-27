@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.transfer;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import ng.com.nawill.pay.common.idempotency.Idempotent;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** FR-Auth-1: peer-to-peer transfer between two Nawill virtual accounts. */
+@Tag(name = "Transfers", description = "Peer-to-peer transfers between Nawill virtual accounts.")
 @RestController
 @RequestMapping("/api/v1/transfers")
 public class TransferController {
@@ -25,12 +28,14 @@ public class TransferController {
     }
 
     /** Confirm-before-send: shows the resolved recipient's masked name before the caller commits to a transfer. */
+    @Operation(summary = "Preview a recipient's masked name before transferring")
     @GetMapping("/resolve")
     @PreAuthorize("@auth.can('transfers:create')")
     public TransferResolveResponse resolve(@RequestParam String identifier) {
         return transferService.resolve(identifier);
     }
 
+    @Operation(summary = "Transfer to another Nawill virtual account (requires transaction PIN)")
     @PostMapping
     @Idempotent
     @PreAuthorize("@auth.can('transfers:create')")

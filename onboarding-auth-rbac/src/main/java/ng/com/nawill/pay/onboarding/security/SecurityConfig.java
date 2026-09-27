@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import javax.crypto.spec.SecretKeySpec;
 import ng.com.nawill.pay.common.crypto.EncryptionService;
 import ng.com.nawill.pay.common.crypto.HmacSigner;
+import ng.com.nawill.pay.common.security.SecurityPaths;
 import ng.com.nawill.pay.common.ratelimit.RateLimitService;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelistRepository;
@@ -68,7 +69,7 @@ public class SecurityConfig {
                 maxClockSkewSeconds, ipMaxRequestsPerMinute, apiKeyMaxRequestsPerMinute);
 
         http
-                .securityMatcher("/api/v1/collect/**", "/api/v1/withdraw/**")
+                .securityMatcher(SecurityPaths.API_KEY)
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
@@ -83,12 +84,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/signup", "/api/v1/auth/signup/accept-invite",
-                                "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
-                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password").permitAll()
-                        .requestMatchers("/api/v1/pay/**").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(SecurityPaths.PUBLIC).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(jwtDecoder())

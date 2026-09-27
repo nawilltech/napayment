@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.payments.paymentlink;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import ng.com.nawill.pay.common.idempotency.Idempotent;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * authenticated {@code PaymentLinkController} (clear separation of
  * concerns: who's allowed to call each is fundamentally different).
  */
+@Tag(name = "Payment Links - Payer", description = "Payer-facing payment link pages; no account needed.")
 @RestController
 @RequestMapping("/api/v1/pay")
 public class PaymentLinkPayController {
@@ -31,11 +34,13 @@ public class PaymentLinkPayController {
         this.paymentLinkService = paymentLinkService;
     }
 
+    @Operation(summary = "Get a payment link's details by short code")
     @GetMapping("/{shortCode}")
     public PaymentLinkResponse resolve(@PathVariable String shortCode) {
         return PaymentLinkResponse.from(paymentLinkService.resolve(shortCode));
     }
 
+    @Operation(summary = "Pay through a payment link")
     @PostMapping("/{shortCode}")
     @Idempotent
     public ResponseEntity<TransactionResponse> pay(@PathVariable String shortCode,

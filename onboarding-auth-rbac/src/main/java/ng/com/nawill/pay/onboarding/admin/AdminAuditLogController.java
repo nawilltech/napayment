@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.onboarding.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import java.util.UUID;
 import ng.com.nawill.pay.common.web.PageDefaults;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Doc 4 §C.5 platform audit-log viewer - see {@link AdminAuditLogService}. */
+@Tag(name = "Admin - Audit Log", description = "Platform-wide security audit log.")
 @RestController
 @RequestMapping("/api/v1/admin/audit-logs")
 public class AdminAuditLogController {
@@ -24,6 +27,7 @@ public class AdminAuditLogController {
         this.adminAuditLogService = adminAuditLogService;
     }
 
+    @Operation(summary = "Search the security audit log across all businesses")
     @GetMapping
     @PreAuthorize("@auth.can('platform-audit:read')")
     public PageResponse<AuditLogResponse> list(@RequestParam(required = false) AuditEventType eventType,

@@ -3,8 +3,8 @@ package ng.com.nawill.pay.payments.collectionaccount;
 import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.ConflictException;
 import ng.com.nawill.pay.common.exception.ResourceNotFoundException;
-import ng.com.nawill.pay.referencedata.repository.BankRepository;
-import ng.com.nawill.pay.common.exception.BadRequestException;
+import ng.com.nawill.pay.payments.bankverification.BankVerificationGateway.ResolvedAccount;
+import ng.com.nawill.pay.payments.bankverification.BankVerificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,21 +13,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class CollectionAccountService {
 
     private final CollectionAccountRepository collectionAccountRepository;
-    private final BankRepository bankRepository;
+    private final BankVerificationService bankVerificationService;
 
-    public CollectionAccountService(CollectionAccountRepository collectionAccountRepository, BankRepository bankRepository) {
+    public CollectionAccountService(CollectionAccountRepository collectionAccountRepository,
+                                    BankVerificationService bankVerificationService) {
         this.collectionAccountRepository = collectionAccountRepository;
-        this.bankRepository = bankRepository;
+        this.bankVerificationService = bankVerificationService;
     }
 
     public CollectionAccount create(CreateCollectionAccountRequest request) {
         if (collectionAccountRepository.findByStatus(EntityStatus.ACTIVE).isPresent()) {
             throw new ConflictException("A collection account is already active - deactivate it before creating another");
         }
-        if (!bankRepository.existsById(request.bankId())) {
-            throw new BadRequestException("UNKNOWN_BANK", "Unknown bank: " + request.bankId());
-        }
-        CollectionAccount account = new CollectionAccount(request.bankId(), request.accountNumber(), request.accountName());
+        // Name Enquiry also validates bankId (UNKNOWN_BANK) - the pooled
+        // account's holder name is provider-resolved, same as a business's
+        // settlement bank account.
+        ResolvedAccount resolved = bankVerificationService.resolve(request.bankId(), request.accountNumber());
+        CollectionAccount account = new CollectionAccount(request.bankId(), resolved.accountNumber(), resolved.accountName());
         return collectionAccountRepository.save(account);
     }
 

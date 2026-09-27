@@ -1,5 +1,7 @@
 package ng.com.nawill.pay.referencedata.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Reference Data", description = "Countries, states and administrative divisions.")
 @RestController
 @RequestMapping("/api/v1")
 public class AdminDivisionController {
@@ -22,6 +25,7 @@ public class AdminDivisionController {
         this.referenceDataService = referenceDataService;
     }
 
+    @Operation(summary = "List a country's states")
     @GetMapping("/countries/{countryId}/states")
     public PageResponse<AdminDivisionResponse> listDivisions(@PathVariable UUID countryId,
                                                                @RequestParam(required = false) Integer level,
@@ -32,6 +36,7 @@ public class AdminDivisionController {
                 .map(AdminDivisionResponse::from));
     }
 
+    @Operation(summary = "List the sub-divisions of a state")
     @GetMapping("/states/{parentId}/children")
     public PageResponse<AdminDivisionResponse> listChildren(@PathVariable UUID parentId,
                                                               @RequestParam(required = false) String term,
