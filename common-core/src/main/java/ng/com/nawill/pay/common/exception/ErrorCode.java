@@ -46,6 +46,7 @@ public enum ErrorCode {
     PIN_NOT_SET(HttpStatus.BAD_REQUEST, "Set a transaction PIN before sending a transfer."),
     INCORRECT_CURRENT_PIN(HttpStatus.BAD_REQUEST, "Your current PIN is incorrect."),
     INVALID_PIN(HttpStatus.BAD_REQUEST, "Incorrect transaction PIN (attempt %d/%d)."),
+    PASSWORD_CONFIRMATION_FAILED(HttpStatus.BAD_REQUEST, "Incorrect password (attempt %d/%d)."),
     UNKNOWN_PERMISSION(HttpStatus.BAD_REQUEST, "One or more of the selected permissions do not exist."),
 
     // ---- API keys (server-to-server) ---------------------------------------
@@ -60,6 +61,7 @@ public enum ErrorCode {
 
     // ---- Onboarding & KYC --------------------------------------------------
     BUSINESS_NOT_FOUND(HttpStatus.NOT_FOUND, "Business not found."),
+    BUSINESS_INACTIVE(HttpStatus.FORBIDDEN, "This business has been deactivated, so it can't receive or move money. Contact Napayment support."),
     UNKNOWN_COUNTRY(HttpStatus.BAD_REQUEST, "Choose a valid country."),
     UNKNOWN_STATE(HttpStatus.BAD_REQUEST, "Choose a valid state."),
     COUNTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "Country not found."),
@@ -87,8 +89,12 @@ public enum ErrorCode {
     DYNAMIC_ACCOUNT_NOT_DEPOSITABLE(HttpStatus.BAD_REQUEST, "This account is %s and can't accept deposits."),
 
     // ---- Money movement ----------------------------------------------------
-    PAYMENTS_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Payments are temporarily unavailable. Try again later."),
+    PAYMENT_METHOD_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "%s payments aren't available for this account right now."),
     PAYMENT_PROCESSOR_NOT_FOUND(HttpStatus.NOT_FOUND, "Payment processor not found."),
+    PAYMENT_PROCESSOR_UNAVAILABLE(HttpStatus.BAD_REQUEST, "This payment processor isn't available for this account."),
+    PAYMENT_PROCESSOR_NAME_TAKEN(HttpStatus.CONFLICT, "A payment processor with this name already exists."),
+    PAYMENT_PROCESSOR_CODE_TAKEN(HttpStatus.CONFLICT, "A payment processor with this code already exists."),
+    PAYMENT_METHOD_NOT_OFFERED(HttpStatus.NOT_FOUND, "This processor doesn't offer %s."),
     TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "Transaction not found."),
     INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "The start date can't be after the end date."),
     INVALID_AMOUNT_RANGE(HttpStatus.BAD_REQUEST, "The minimum amount can't be more than the maximum amount."),

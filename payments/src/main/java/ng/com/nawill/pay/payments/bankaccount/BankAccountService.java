@@ -1,6 +1,9 @@
 package ng.com.nawill.pay.payments.bankaccount;
 
 import java.util.UUID;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
+import ng.com.nawill.pay.common.audit.AuditRecorder;
 import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
@@ -8,6 +11,7 @@ import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.bankverification.BankVerificationGateway.ResolvedAccount;
 import ng.com.nawill.pay.payments.bankverification.BankVerificationService;
+import ng.com.nawill.pay.payments.platform.BusinessAccess;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,13 +24,19 @@ public class BankAccountService {
     private final BankAccountRepository bankAccountRepository;
     private final BankVerificationService bankVerificationService;
     private final CurrentUserResolver currentUserResolver;
+    private final BusinessAccess businessAccess;
+    private final AuditRecorder auditRecorder;
 
     public BankAccountService(BankAccountRepository bankAccountRepository,
                                BankVerificationService bankVerificationService,
-                               CurrentUserResolver currentUserResolver) {
+                               CurrentUserResolver currentUserResolver,
+                               BusinessAccess businessAccess,
+                               AuditRecorder auditRecorder) {
         this.bankAccountRepository = bankAccountRepository;
         this.bankVerificationService = bankVerificationService;
         this.currentUserResolver = currentUserResolver;
+        this.businessAccess = businessAccess;
+        this.auditRecorder = auditRecorder;
     }
 
     public BankAccount create(CreateBankAccountRequest request) {
@@ -36,8 +46,12 @@ public class BankAccountService {
 
     /** Platform admin registering a settlement bank account on a business's behalf. */
     public BankAccount createOnBehalfOf(UUID businessId, CreateBankAccountRequest request) {
-        requireBusinessExists(businessId);
-        return createForBusiness(businessId, request);
+        businessAccess.requireExists(businessId);
+        BankAccount bankAccount = createForBusiness(businessId, request);
+        auditRecorder.record(AuditEventType.BANK_ACCOUNT_REGISTERED_BY_ADMIN, AuditOutcome.SUCCESS,
+                currentUserResolver.requireCurrentUser().userId(), businessId,
+                "bankAccount=" + bankAccount.getId() + " bank=" + bankAccount.getBankId());
+        return bankAccount;
     }
 
     @Transactional(readOnly = true)
@@ -48,7 +62,7 @@ public class BankAccountService {
 
     @Transactional(readOnly = true)
     public Page<BankAccount> listForBusiness(UUID businessId, Pageable pageable) {
-        requireBusinessExists(businessId);
+        businessAccess.requireExists(businessId);
         return bankAccountRepository.findByBusinessId(businessId, pageable);
     }
 
@@ -67,9 +81,4 @@ public class BankAccountService {
         return bankAccountRepository.save(bankAccount);
     }
 
-    private void requireBusinessExists(UUID businessId) {
-        if (!bankAccountRepository.businessExists(businessId)) {
-            throw new ApiException(ErrorCode.BUSINESS_NOT_FOUND);
-        }
-    }
 }

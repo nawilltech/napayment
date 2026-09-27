@@ -46,7 +46,7 @@ public class OpenApiConfig {
      * template (RoleTemplate) nor to the USER/BUSINESS_OWNER seeded roles.
      */
     private static final Set<String> ADMIN_PERMISSIONS =
-            Set.of("collection-account:manage", "processors:configure", "processors:read");
+            Set.of("collection-account:manage");
     private static final String ADMIN_PERMISSION_PREFIX = "platform-";
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();

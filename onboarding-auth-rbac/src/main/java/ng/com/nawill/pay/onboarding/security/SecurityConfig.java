@@ -11,6 +11,7 @@ import ng.com.nawill.pay.common.security.SecurityPaths;
 import ng.com.nawill.pay.common.web.ErrorResponseWriter;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelistRepository;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyRepository;
+import ng.com.nawill.pay.payments.platform.BusinessDirectory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -61,6 +62,7 @@ public class SecurityConfig {
                                                   ApiKeyIpWhitelistRepository ipWhitelistRepository,
                                                   EncryptionService encryptionService, HmacSigner hmacSigner,
                                                   ErrorResponseWriter errorResponseWriter, RateLimitService rateLimitService,
+                                                  BusinessDirectory businessDirectory,
                                                   @Value("${nawill.security.request-signing.max-clock-skew-seconds:300}")
                                                   long maxClockSkewSeconds,
                                                   @Value("${nawill.security.rate-limit.ip.max-requests-per-minute:120}")
@@ -69,7 +71,7 @@ public class SecurityConfig {
                                                   int apiKeyMaxRequestsPerMinute) throws Exception {
         ApiKeyAuthenticationFilter apiKeyAuthenticationFilter = new ApiKeyAuthenticationFilter(
                 apiKeyRepository, ipWhitelistRepository, encryptionService, hmacSigner, errorResponseWriter, rateLimitService,
-                maxClockSkewSeconds, ipMaxRequestsPerMinute, apiKeyMaxRequestsPerMinute);
+                maxClockSkewSeconds, ipMaxRequestsPerMinute, apiKeyMaxRequestsPerMinute, businessDirectory);
 
         http
                 .securityMatcher(SecurityPaths.API_KEY)

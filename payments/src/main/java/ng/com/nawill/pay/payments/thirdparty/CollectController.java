@@ -5,18 +5,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
-import ng.com.nawill.pay.common.entity.EntityStatus;
-import ng.com.nawill.pay.common.exception.ApiException;
-import ng.com.nawill.pay.common.exception.ErrorCode;
-import ng.com.nawill.pay.common.idempotency.Idempotent;
 import ng.com.nawill.pay.common.idempotency.IdempotencyConstants;
-import ng.com.nawill.pay.payments.processor.PaymentProcessor;
-import ng.com.nawill.pay.payments.processor.PaymentProcessorRepository;
+import ng.com.nawill.pay.common.idempotency.Idempotent;
 import ng.com.nawill.pay.payments.transaction.CreateTransactionRequest;
 import ng.com.nawill.pay.payments.transaction.Transaction;
 import ng.com.nawill.pay.payments.transaction.TransactionResponse;
 import ng.com.nawill.pay.payments.transaction.TransactionService;
-import ng.com.nawill.pay.payments.transaction.TransactionType;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountQueryService;
 import org.springframework.http.ResponseEntity;
@@ -42,13 +36,10 @@ public class CollectController {
 
     private final TransactionService transactionService;
     private final VirtualAccountQueryService virtualAccountQueryService;
-    private final PaymentProcessorRepository paymentProcessorRepository;
 
-    public CollectController(TransactionService transactionService, VirtualAccountQueryService virtualAccountQueryService,
-                              PaymentProcessorRepository paymentProcessorRepository) {
+    public CollectController(TransactionService transactionService, VirtualAccountQueryService virtualAccountQueryService) {
         this.transactionService = transactionService;
         this.virtualAccountQueryService = virtualAccountQueryService;
-        this.paymentProcessorRepository = paymentProcessorRepository;
     }
 
     @Operation(summary = "Record a collection into the business's virtual account")
@@ -59,11 +50,8 @@ public class CollectController {
                                                          HttpServletRequest httpRequest) {
         String idempotencyKey = httpRequest.getHeader(IdempotencyConstants.HEADER);
         VirtualAccount virtualAccount = virtualAccountQueryService.requireSoleVirtualAccountForCaller();
-        PaymentProcessor processor = paymentProcessorRepository.findFirstByStatus(EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENTS_UNAVAILABLE));
-
-        CreateTransactionRequest createRequest = new CreateTransactionRequest(
-                virtualAccount.getId(), processor.getId(), TransactionType.CREDIT, request.amount());
+        CreateTransactionRequest createRequest = CreateTransactionRequest.routedCredit(
+                virtualAccount.getId(), request.paymentMethod(), request.amount());
         Transaction transaction = transactionService.create(createRequest, idempotencyKey);
 
         return ResponseEntity.created(URI.create("/api/v1/transactions/" + transaction.getId()))

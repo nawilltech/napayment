@@ -24,6 +24,7 @@ import ng.com.nawill.pay.onboarding.apikey.ApiKeyCredential;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelist;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyIpWhitelistRepository;
 import ng.com.nawill.pay.onboarding.apikey.ApiKeyRepository;
+import ng.com.nawill.pay.payments.platform.BusinessDirectory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -55,13 +56,15 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private final long maxClockSkewSeconds;
     private final int ipMaxRequestsPerMinute;
     private final int apiKeyMaxRequestsPerMinute;
+    private final BusinessDirectory businessDirectory;
 
     public ApiKeyAuthenticationFilter(ApiKeyRepository apiKeyRepository,
                                        ApiKeyIpWhitelistRepository ipWhitelistRepository,
                                        EncryptionService encryptionService, HmacSigner hmacSigner,
                                        ErrorResponseWriter errorResponseWriter, RateLimitService rateLimitService,
                                        long maxClockSkewSeconds, int ipMaxRequestsPerMinute,
-                                       int apiKeyMaxRequestsPerMinute) {
+                                       int apiKeyMaxRequestsPerMinute,
+                                       BusinessDirectory businessDirectory) {
         this.apiKeyRepository = apiKeyRepository;
         this.ipWhitelistRepository = ipWhitelistRepository;
         this.encryptionService = encryptionService;
@@ -71,6 +74,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         this.maxClockSkewSeconds = maxClockSkewSeconds;
         this.ipMaxRequestsPerMinute = ipMaxRequestsPerMinute;
         this.apiKeyMaxRequestsPerMinute = apiKeyMaxRequestsPerMinute;
+        this.businessDirectory = businessDirectory;
     }
 
     @Override
@@ -121,6 +125,12 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                 .map(ApiKeyIpWhitelist::getCidr).toList();
         if (!whitelist.isEmpty() && whitelist.stream().noneMatch(cidr -> matchesCidr(request.getRemoteAddr(), cidr))) {
             errorResponseWriter.write(response, ErrorCode.IP_NOT_WHITELISTED);
+            return;
+        }
+
+        // After authentication, so only the key's owner learns the business is deactivated (FR-Admin-6).
+        if (!businessDirectory.isActive(apiKey.getBusinessId())) {
+            errorResponseWriter.write(response, ErrorCode.BUSINESS_INACTIVE);
             return;
         }
 

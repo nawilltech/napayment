@@ -48,7 +48,7 @@ class OpenApiDocsIT extends AbstractIntegrationTest {
         assertAuth(approveKyc, "ADMIN");
         assertThat(approveKyc.get("x-required-permission")).isEqualTo("platform-kyc:review");
         assertAuth(paths.get("/api/v1/collection-account").get("post"), "ADMIN");
-        assertAuth(paths.get("/api/v1/payment-processors").get("post"), "ADMIN");
+        assertAuth(paths.get("/api/v1/admin/payment-processors").get("post"), "ADMIN");
 
         Map<String, Object> bankAccounts = paths.get("/api/v1/bank-accounts").get("post");
         assertAuth(bankAccounts, "USER");

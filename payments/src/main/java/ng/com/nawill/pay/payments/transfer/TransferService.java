@@ -8,6 +8,7 @@ import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.logging.PiiMasker;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.payments.platform.BusinessAccess;
 import ng.com.nawill.pay.payments.transaction.Transaction;
 import ng.com.nawill.pay.payments.transaction.TransactionRepository;
 import ng.com.nawill.pay.payments.transaction.TransactionStatus;
@@ -45,19 +46,22 @@ public class TransferService {
     private final CurrentUserResolver currentUserResolver;
     private final RecipientDirectory recipientDirectory;
     private final TransactionPinGateway transactionPinGateway;
+    private final BusinessAccess businessAccess;
 
     public TransferService(VirtualAccountRepository virtualAccountRepository,
                             VirtualAccountQueryService virtualAccountQueryService,
                             TransactionRepository transactionRepository,
                             CurrentUserResolver currentUserResolver,
                             RecipientDirectory recipientDirectory,
-                            TransactionPinGateway transactionPinGateway) {
+                            TransactionPinGateway transactionPinGateway,
+                            BusinessAccess businessAccess) {
         this.virtualAccountRepository = virtualAccountRepository;
         this.virtualAccountQueryService = virtualAccountQueryService;
         this.transactionRepository = transactionRepository;
         this.currentUserResolver = currentUserResolver;
         this.recipientDirectory = recipientDirectory;
         this.transactionPinGateway = transactionPinGateway;
+        this.businessAccess = businessAccess;
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +77,9 @@ public class TransferService {
 
         VirtualAccount recipientAccount = resolveRecipientAccount(request.recipientIdentifier())
                 .orElseThrow(() -> new ApiException(ErrorCode.RECIPIENT_NOT_FOUND, request.recipientIdentifier()));
+        // Neither side may be a deactivated business (FR-Admin-6).
+        businessAccess.requireActive(callerAccount.getBusinessId());
+        businessAccess.requireActive(recipientAccount.getBusinessId());
         if (recipientAccount.getId().equals(callerAccount.getId())) {
             throw new ApiException(ErrorCode.SELF_TRANSFER);
         }

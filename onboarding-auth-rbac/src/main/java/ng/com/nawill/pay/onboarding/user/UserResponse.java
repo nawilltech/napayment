@@ -15,6 +15,8 @@ public record UserResponse(
         UserType userType,
         String businessName,
         String cacNumber,
+        /** False when platform staff have deactivated the business (FR-Admin-6): read-only until reactivated. */
+        boolean businessActive,
         boolean isVerified,
         Instant createdAt
 ) {
@@ -31,6 +33,7 @@ public record UserResponse(
                 user.getUserType(),
                 business == null ? null : business.getName(),
                 business == null ? null : business.getCacNumber(),
+                business == null || business.isActive(),
                 user.isVerified(),
                 user.getCreatedAt());
     }

@@ -2,6 +2,7 @@ package ng.com.nawill.pay.onboarding.admin;
 
 import java.time.Instant;
 import java.util.UUID;
+import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.onboarding.business.Business;
 import ng.com.nawill.pay.onboarding.business.KycStatus;
 import ng.com.nawill.pay.onboarding.user.User;
@@ -13,6 +14,7 @@ public record AdminBusinessSummaryResponse(
         String cacNumber,
         boolean cacVerified,
         KycStatus kycStatus,
+        EntityStatus status,
         Instant kycSubmittedAt,
         String ownerName,
         String ownerEmail,
@@ -21,7 +23,7 @@ public record AdminBusinessSummaryResponse(
 
     public static AdminBusinessSummaryResponse from(Business business, User owner) {
         return new AdminBusinessSummaryResponse(business.getId(), business.getName(), business.getCacNumber(),
-                business.isCacVerified(), business.getKycStatus(), business.getKycSubmittedAt(),
+                business.isCacVerified(), business.getKycStatus(), business.getStatus(), business.getKycSubmittedAt(),
                 owner == null ? null : owner.getFirstName() + " " + owner.getLastName(),
                 owner == null ? null : owner.getEmail(), business.getCreatedAt());
     }

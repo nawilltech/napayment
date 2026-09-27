@@ -4,19 +4,19 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
-import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
-import ng.com.nawill.pay.payments.processor.PaymentProcessor;
-import ng.com.nawill.pay.payments.processor.PaymentProcessorRepository;
+import ng.com.nawill.pay.payments.platform.BusinessAccess;
+import ng.com.nawill.pay.payments.processor.PaymentMethodResponse;
+import ng.com.nawill.pay.payments.processor.ProcessorRouter;
 import ng.com.nawill.pay.payments.transaction.CreateTransactionRequest;
 import ng.com.nawill.pay.payments.transaction.Transaction;
 import ng.com.nawill.pay.payments.transaction.TransactionService;
 import ng.com.nawill.pay.payments.transaction.TransactionStatus;
-import ng.com.nawill.pay.payments.transaction.TransactionType;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountQueryService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,20 +42,23 @@ public class PaymentLinkService {
 
     private final PaymentLinkRepository paymentLinkRepository;
     private final VirtualAccountQueryService virtualAccountQueryService;
-    private final PaymentProcessorRepository paymentProcessorRepository;
     private final TransactionService transactionService;
     private final CurrentUserResolver currentUserResolver;
     private final SecureRandom random = new SecureRandom();
+    private final BusinessAccess businessAccess;
+    private final ProcessorRouter processorRouter;
 
     public PaymentLinkService(PaymentLinkRepository paymentLinkRepository,
                                VirtualAccountQueryService virtualAccountQueryService,
-                               PaymentProcessorRepository paymentProcessorRepository,
-                               TransactionService transactionService, CurrentUserResolver currentUserResolver) {
+                               TransactionService transactionService, CurrentUserResolver currentUserResolver,
+                               BusinessAccess businessAccess,
+                               ProcessorRouter processorRouter) {
         this.paymentLinkRepository = paymentLinkRepository;
         this.virtualAccountQueryService = virtualAccountQueryService;
-        this.paymentProcessorRepository = paymentProcessorRepository;
         this.transactionService = transactionService;
         this.currentUserResolver = currentUserResolver;
+        this.processorRouter = processorRouter;
+        this.businessAccess = businessAccess;
     }
 
     public PaymentLink create(CreatePaymentLinkRequest request) {
@@ -96,6 +99,21 @@ public class PaymentLinkService {
      * (concurrency note in the plan: two simultaneous pay attempts on a
      * single-use link must never both succeed).
      */
+    /**
+     * What a payer sees before paying: the link and the methods it can be
+     * paid with now - none when the owning business is deactivated (FR-Admin-6).
+     */
+    @Transactional(readOnly = true)
+    public PaymentLinkCheckoutResponse checkout(String shortCode) {
+        PaymentLink link = resolve(shortCode);
+        UUID businessId = link.getVirtualAccount().getBusinessId();
+        List<PaymentMethodResponse> methods = !businessAccess.isActive(businessId) ? List.of()
+                : processorRouter.availableMethods(businessId).stream()
+                        .map(method -> PaymentMethodResponse.of(method, true))
+                        .toList();
+        return new PaymentLinkCheckoutResponse(PaymentLinkResponse.from(link), methods);
+    }
+
     public Transaction pay(String shortCode, PayLinkRequest request, String idempotencyKey) {
         PaymentLink link = paymentLinkRepository.findByShortCodeForUpdate(shortCode)
                 .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_LINK_NOT_FOUND));
@@ -112,11 +130,8 @@ public class PaymentLinkService {
             throw new ApiException(ErrorCode.AMOUNT_REQUIRED);
         }
 
-        PaymentProcessor processor = paymentProcessorRepository.findFirstByStatus(EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENTS_UNAVAILABLE));
-
-        CreateTransactionRequest createRequest = new CreateTransactionRequest(
-                link.getVirtualAccount().getId(), processor.getId(), TransactionType.CREDIT, amount);
+        CreateTransactionRequest createRequest = CreateTransactionRequest.routedCredit(
+                link.getVirtualAccount().getId(), request.paymentMethod(), amount);
         Transaction transaction = transactionService.createForPaymentIntent(createRequest, idempotencyKey);
 
         if (transaction.getTransactionStatus() == TransactionStatus.PAID && link.isSingleUse()) {

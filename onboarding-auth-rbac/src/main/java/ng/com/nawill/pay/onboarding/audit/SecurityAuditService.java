@@ -3,6 +3,9 @@ package ng.com.nawill.pay.onboarding.audit;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 import java.util.UUID;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditRecorder;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -26,7 +29,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * LoginAttemptService} already uses for its own Redis calls.
  */
 @Service
-public class SecurityAuditService {
+public class SecurityAuditService implements AuditRecorder {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityAuditService.class);
     private static final int EMAIL_MAX = 128;
@@ -53,6 +56,7 @@ public class SecurityAuditService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Override
     public void record(AuditEventType eventType, AuditOutcome outcome, UUID userId, UUID businessId, String detail) {
         record(eventType, outcome, userId, businessId, null, detail);
     }

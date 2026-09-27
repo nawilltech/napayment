@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Map;
 import java.util.UUID;
 import ng.com.nawill.pay.common.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -13,6 +14,12 @@ import org.springframework.http.ResponseEntity;
 
 /** Shareable payment links, permanent and single-use (FR-14, doc 4 §C.9). */
 class PaymentLinkIT extends AbstractIntegrationTest {
+
+    /** Payments route to an active processor - don't depend on another test class having created one. */
+    @BeforeEach
+    void ensureProcessor() {
+        createPaymentProcessor();
+    }
 
     @Test
     void permanentLinkIsPublicAndReusable() {

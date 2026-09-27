@@ -2,6 +2,7 @@ package ng.com.nawill.pay.app.it;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import ng.com.nawill.pay.common.exception.ErrorCode;
@@ -22,9 +23,10 @@ class RbacIT extends AbstractIntegrationTest {
     void userRoleTokenIsRejectedFromAdminOnlyEndpoint() {
         String userToken = signupAndGetToken("Rosalind", "Franklin", "SecurePass123!");
 
-        Map<String, Object> processorRequest = Map.of("name", "Interswitch-" + UUID.randomUUID());
+        Map<String, Object> processorRequest = Map.of("name", "Interswitch-" + UUID.randomUUID(),
+                "code", "ISW_" + UUID.randomUUID().toString().substring(0, 8), "methods", List.of("CARD"));
         ResponseEntity<Map> response = restTemplate.exchange(
-                url("/api/v1/payment-processors"), HttpMethod.POST,
+                url("/api/v1/admin/payment-processors"), HttpMethod.POST,
                 new HttpEntity<>(processorRequest, authHeaders(userToken)), Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);

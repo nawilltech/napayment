@@ -11,9 +11,11 @@ import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccount;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccountRepository;
+import ng.com.nawill.pay.payments.platform.BusinessAccess;
+import ng.com.nawill.pay.payments.processor.PaymentMethod;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
 import ng.com.nawill.pay.payments.processor.PaymentProcessorGateway;
-import ng.com.nawill.pay.payments.processor.PaymentProcessorRepository;
+import ng.com.nawill.pay.payments.processor.ProcessorRouter;
 import ng.com.nawill.pay.payments.settlement.SettlementService;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountRepository;
@@ -32,7 +34,8 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final VirtualAccountRepository virtualAccountRepository;
-    private final PaymentProcessorRepository paymentProcessorRepository;
+    private final ProcessorRouter processorRouter;
+    private final BusinessAccess businessAccess;
     private final PaymentProcessorGateway paymentProcessorGateway;
     private final CollectionAccountRepository collectionAccountRepository;
     private final SettlementService settlementService;
@@ -40,14 +43,16 @@ public class TransactionService {
 
     public TransactionService(TransactionRepository transactionRepository,
                                VirtualAccountRepository virtualAccountRepository,
-                               PaymentProcessorRepository paymentProcessorRepository,
+                               ProcessorRouter processorRouter,
+                               BusinessAccess businessAccess,
                                PaymentProcessorGateway paymentProcessorGateway,
                                CollectionAccountRepository collectionAccountRepository,
                                SettlementService settlementService,
                                CurrentUserResolver currentUserResolver) {
         this.transactionRepository = transactionRepository;
         this.virtualAccountRepository = virtualAccountRepository;
-        this.paymentProcessorRepository = paymentProcessorRepository;
+        this.processorRouter = processorRouter;
+        this.businessAccess = businessAccess;
         this.paymentProcessorGateway = paymentProcessorGateway;
         this.collectionAccountRepository = collectionAccountRepository;
         this.settlementService = settlementService;
@@ -113,10 +118,14 @@ public class TransactionService {
     }
 
     private Transaction process(CreateTransactionRequest request, String idempotencyKey, VirtualAccount virtualAccount) {
-        PaymentProcessor processor = paymentProcessorRepository.findById(request.paymentProcessorId())
-                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_PROCESSOR_NOT_FOUND));
+        UUID businessId = virtualAccount.getBusinessId();
+        businessAccess.requireActive(businessId);
+        PaymentMethod method = request.paymentMethodOrDefault();
+        PaymentProcessor processor = request.paymentProcessorId() == null
+                ? processorRouter.route(businessId, method)
+                : processorRouter.requireUsable(request.paymentProcessorId(), businessId, method);
 
-        Transaction transaction = new Transaction(request.amount(), idempotencyKey, processor,
+        Transaction transaction = new Transaction(request.amount(), idempotencyKey, processor, method,
                 request.transactionType(), UUID.randomUUID().toString(), virtualAccount);
         // TODO(FR-11): compute charge from configurable amount-tiers instead of zero.
         transaction = transactionRepository.save(transaction);

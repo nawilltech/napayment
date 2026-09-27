@@ -2,18 +2,15 @@ package ng.com.nawill.pay.payments.dynamicaccount;
 
 import java.time.Duration;
 import java.time.Instant;
-import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
-import ng.com.nawill.pay.payments.processor.PaymentProcessor;
-import ng.com.nawill.pay.payments.processor.PaymentProcessorRepository;
+import ng.com.nawill.pay.payments.processor.PaymentMethod;
 import ng.com.nawill.pay.payments.transaction.CreateTransactionRequest;
 import ng.com.nawill.pay.payments.transaction.Transaction;
 import ng.com.nawill.pay.payments.transaction.TransactionService;
 import ng.com.nawill.pay.payments.transaction.TransactionStatus;
-import ng.com.nawill.pay.payments.transaction.TransactionType;
 import ng.com.nawill.pay.payments.util.AccountNumberGenerator;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountQueryService;
@@ -38,20 +35,17 @@ public class DynamicVirtualAccountService {
     private final DynamicVirtualAccountRepository dynamicVirtualAccountRepository;
     private final VirtualAccountQueryService virtualAccountQueryService;
     private final AccountNumberGenerator accountNumberGenerator;
-    private final PaymentProcessorRepository paymentProcessorRepository;
     private final TransactionService transactionService;
     private final CurrentUserResolver currentUserResolver;
 
     public DynamicVirtualAccountService(DynamicVirtualAccountRepository dynamicVirtualAccountRepository,
                                          VirtualAccountQueryService virtualAccountQueryService,
                                          AccountNumberGenerator accountNumberGenerator,
-                                         PaymentProcessorRepository paymentProcessorRepository,
                                          TransactionService transactionService,
                                          CurrentUserResolver currentUserResolver) {
         this.dynamicVirtualAccountRepository = dynamicVirtualAccountRepository;
         this.virtualAccountQueryService = virtualAccountQueryService;
         this.accountNumberGenerator = accountNumberGenerator;
-        this.paymentProcessorRepository = paymentProcessorRepository;
         this.transactionService = transactionService;
         this.currentUserResolver = currentUserResolver;
     }
@@ -90,11 +84,9 @@ public class DynamicVirtualAccountService {
             throw new ApiException(ErrorCode.DYNAMIC_ACCOUNT_NOT_DEPOSITABLE, account.getDynamicAccountStatus().name().toLowerCase());
         }
 
-        PaymentProcessor processor = paymentProcessorRepository.findFirstByStatus(EntityStatus.ACTIVE)
-                .orElseThrow(() -> new ApiException(ErrorCode.PAYMENTS_UNAVAILABLE));
-
-        CreateTransactionRequest createRequest = new CreateTransactionRequest(
-                account.getVirtualAccount().getId(), processor.getId(), TransactionType.CREDIT, request.amount());
+        // A one-time account is paid into by bank transfer.
+        CreateTransactionRequest createRequest = CreateTransactionRequest.routedCredit(
+                account.getVirtualAccount().getId(), PaymentMethod.TRANSFER, request.amount());
         Transaction transaction = transactionService.create(createRequest, idempotencyKey);
 
         if (transaction.getTransactionStatus() == TransactionStatus.PAID) {

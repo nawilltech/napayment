@@ -3,6 +3,7 @@ package ng.com.nawill.pay.payments.transaction;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.UUID;
+import ng.com.nawill.pay.payments.processor.PaymentMethod;
 
 public record TransactionResponse(
         UUID id,
@@ -13,6 +14,7 @@ public record TransactionResponse(
         String sessionId,
         UUID virtualAccountId,
         UUID paymentProcessorId,
+        PaymentMethod paymentMethod,
         UUID transferGroupId,
         UUID counterpartyAccountId,
         Instant createdAt
@@ -28,6 +30,7 @@ public record TransactionResponse(
                 transaction.getSessionId(),
                 transaction.getVirtualAccount().getId(),
                 transaction.getPaymentProcessor() == null ? null : transaction.getPaymentProcessor().getId(),
+                transaction.getPaymentMethod(),
                 transaction.getTransferGroupId(),
                 transaction.getCounterpartyAccountId(),
                 transaction.getCreatedAt());

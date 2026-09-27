@@ -2,8 +2,8 @@ package ng.com.nawill.pay.onboarding.admin;
 
 import java.time.Instant;
 import java.util.UUID;
-import ng.com.nawill.pay.onboarding.audit.AuditEventType;
-import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditLogRepository;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditLogSpecifications;
 import org.springframework.data.domain.Page;

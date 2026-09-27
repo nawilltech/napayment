@@ -1,4 +1,4 @@
-package ng.com.nawill.pay.onboarding.audit;
+package ng.com.nawill.pay.common.audit;
 
 /**
  * PCI DSS 10.2.1's auditable-event categories, mapped onto this app's actual
@@ -28,7 +28,22 @@ public enum AuditEventType {
     KYC_APPROVED,
     KYC_REJECTED,
     TEAM_INVITATION_CREATED,
-    TEAM_INVITATION_REVOKED
+    TEAM_INVITATION_REVOKED,
+    // Platform configuration (FR-Admin-7): written by platform staff actions.
+    PAYMENT_PROCESSOR_CREATED,
+    PAYMENT_PROCESSOR_UPDATED,
+    PAYMENT_PROCESSOR_ACTIVATED,
+    PAYMENT_PROCESSOR_DEACTIVATED,
+    PAYMENT_METHOD_ENABLED,
+    PAYMENT_METHOD_DISABLED,
+    PAYMENT_PROCESSOR_ENABLED_FOR_ALL,
+    PAYMENT_PROCESSOR_DISABLED_FOR_ALL,
+    BUSINESS_PAYMENT_PROCESSOR_SET,
+    BUSINESS_PAYMENT_PROCESSOR_RESET,
+    BUSINESS_DEACTIVATED,
+    BUSINESS_ACTIVATED,
+    BANK_ACCOUNT_REGISTERED_BY_ADMIN,
+    PASSWORD_CONFIRMATION_FAILED
     // Invite acceptance is recorded as SIGNUP_VIA_INVITE (AuthService) - the
     // same real-world event, already carrying the invitation id in its detail.
 }

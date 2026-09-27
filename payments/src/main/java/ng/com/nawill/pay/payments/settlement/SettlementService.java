@@ -10,6 +10,7 @@ import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccount;
 import ng.com.nawill.pay.payments.collectionaccount.CollectionAccountRepository;
+import ng.com.nawill.pay.payments.platform.BusinessAccess;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccountRepository;
 import org.slf4j.Logger;
@@ -43,17 +44,20 @@ public class SettlementService {
     private final VirtualAccountRepository virtualAccountRepository;
     private final CollectionAccountRepository collectionAccountRepository;
     private final SettlementGateway settlementGateway;
+    private final BusinessAccess businessAccess;
 
     public SettlementService(SettlementRepository settlementRepository,
                               SettlementAccountRepository settlementAccountRepository,
                               VirtualAccountRepository virtualAccountRepository,
                               CollectionAccountRepository collectionAccountRepository,
-                              SettlementGateway settlementGateway) {
+                              SettlementGateway settlementGateway,
+                              BusinessAccess businessAccess) {
         this.settlementRepository = settlementRepository;
         this.settlementAccountRepository = settlementAccountRepository;
         this.virtualAccountRepository = virtualAccountRepository;
         this.collectionAccountRepository = collectionAccountRepository;
         this.settlementGateway = settlementGateway;
+        this.businessAccess = businessAccess;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -63,6 +67,7 @@ public class SettlementService {
         // so concurrent settlements can never deadlock against each other.
         VirtualAccount virtualAccount = virtualAccountRepository.findByIdForUpdate(virtualAccountId)
                 .orElseThrow(() -> new ApiException(ErrorCode.VIRTUAL_ACCOUNT_NOT_FOUND));
+        businessAccess.requireActive(virtualAccount.getBusinessId());
 
         List<SettlementAccount> settlementAccounts = settlementAccountRepository.findByVirtualAccountId(virtualAccountId);
         if (settlementAccounts.isEmpty()) {
