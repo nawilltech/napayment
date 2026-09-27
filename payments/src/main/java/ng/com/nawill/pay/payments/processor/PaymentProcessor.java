@@ -37,6 +37,10 @@ public class PaymentProcessor extends BaseEntity {
     @Column(name = "default_enabled", nullable = false)
     private boolean defaultEnabled;
 
+    /** Optional base64 data URL (validated by {@link ProcessorLogo}); null = no logo. */
+    @Column(name = "logo", columnDefinition = "TEXT")
+    private String logo;
+
     @OneToMany(mappedBy = "processor", cascade = CascadeType.ALL)
     @OrderBy("method")
     private List<PaymentProcessorMethod> methods = new ArrayList<>();
@@ -65,6 +69,15 @@ public class PaymentProcessor extends BaseEntity {
 
     public boolean isDefaultEnabled() {
         return defaultEnabled;
+    }
+
+    public String getLogo() {
+        return logo;
+    }
+
+    /** Null removes the logo. */
+    public void setLogo(String logo) {
+        this.logo = logo == null ? null : ProcessorLogo.validate(logo);
     }
 
     public boolean isActive() {

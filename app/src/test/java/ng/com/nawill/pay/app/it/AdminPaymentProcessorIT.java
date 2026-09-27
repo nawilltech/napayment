@@ -153,6 +153,43 @@ class AdminPaymentProcessorIT extends AbstractIntegrationTest {
         assertThat(inactive.get("businessSetting")).as("kept for reactivation").isEqualTo(true);
     }
 
+    /** A real 1x1 PNG. */
+    private static final String PNG_LOGO = "data:image/png;base64,"
+            + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    @Test
+    void anOptionalLogoIsStoredAsABase64DataUrlAndCanBeReplacedOrRemoved() {
+        String suffix = unique();
+        ResponseEntity<Map> created = adminExchange(HttpMethod.POST, PROCESSORS, Map.of("name", "Logo " + suffix,
+                "code", "LOGO_" + suffix, "methods", List.of("CARD"), "logo", PNG_LOGO));
+        assertThat(created.getBody().get("logo")).isEqualTo(PNG_LOGO);
+        String id = (String) created.getBody().get("id");
+        assertThat(adminExchange(HttpMethod.GET, PROCESSORS + "/" + createPaymentProcessor(), null).getBody().get("logo"))
+                .as("optional").isNull();
+
+        String businessId = (String) businessSignup("Logo", "Viewer", "SecurePass123!").get("businessId");
+        assertThat(processorFor(businessId, id).get("logo")).isEqualTo(PNG_LOGO);
+
+        ResponseEntity<Map> removed = adminExchange(HttpMethod.DELETE, PROCESSORS + "/" + id + "/logo", null);
+        assertThat(removed.getBody().get("logo")).isNull();
+        ResponseEntity<Map> replaced = adminExchange(HttpMethod.PUT, PROCESSORS + "/" + id + "/logo", Map.of("logo", PNG_LOGO));
+        assertThat(replaced.getBody().get("logo")).isEqualTo(PNG_LOGO);
+    }
+
+    @Test
+    void logosMustBeSmallPngJpegOrWebpDataUrls() {
+        String id = createPaymentProcessor();
+        String svg = "data:image/svg+xml;base64,"
+                + java.util.Base64.getEncoder().encodeToString("<svg><script>alert(1)</script></svg>".getBytes());
+        String tooBig = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(new byte[101 * 1024]);
+        for (String logo : List.of(svg, tooBig, "data:image/png;base64,not*base64", "https://example.com/logo.png")) {
+            ResponseEntity<Map> rejected = adminExchange(HttpMethod.PUT, PROCESSORS + "/" + id + "/logo", Map.of("logo", logo));
+            assertError(rejected, ErrorCode.INVALID_LOGO);
+        }
+        assertError(adminExchange(HttpMethod.POST, PROCESSORS, Map.of("name", "Bad logo " + unique(), "code", "BL_" + unique(),
+                "methods", List.of("CARD"), "logo", svg)), ErrorCode.INVALID_LOGO);
+    }
+
     @Test
     void businessAccountsCannotReachProcessorSetupAndUnknownBusinessesAre404() {
         String token = businessSignupAndGetToken("Nosy", "Merchant", "SecurePass123!");

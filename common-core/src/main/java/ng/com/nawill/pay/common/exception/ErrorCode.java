@@ -94,6 +94,7 @@ public enum ErrorCode {
     PAYMENT_PROCESSOR_UNAVAILABLE(HttpStatus.BAD_REQUEST, "This payment processor isn't available for this account."),
     PAYMENT_PROCESSOR_NAME_TAKEN(HttpStatus.CONFLICT, "A payment processor with this name already exists."),
     PAYMENT_PROCESSOR_CODE_TAKEN(HttpStatus.CONFLICT, "A payment processor with this code already exists."),
+    INVALID_LOGO(HttpStatus.BAD_REQUEST, "The logo must be a PNG, JPEG or WebP image of %d KB or less."),
     PAYMENT_METHOD_NOT_OFFERED(HttpStatus.NOT_FOUND, "This processor doesn't offer %s."),
     TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "Transaction not found."),
     INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "The start date can't be after the end date."),

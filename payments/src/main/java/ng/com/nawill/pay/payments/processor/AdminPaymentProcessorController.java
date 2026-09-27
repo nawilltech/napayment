@@ -75,6 +75,20 @@ public class AdminPaymentProcessorController {
         return service.update(id, request);
     }
 
+    @Operation(summary = "Set a processor's logo (base64 data URL: PNG, JPEG or WebP, max 100 KB)")
+    @PutMapping("/payment-processors/{id}/logo")
+    @PreAuthorize("@auth.can('platform-processors:manage')")
+    public PaymentProcessorResponse setLogo(@PathVariable UUID id, @Valid @RequestBody SetProcessorLogoRequest request) {
+        return service.setLogo(id, request.logo());
+    }
+
+    @Operation(summary = "Remove a processor's logo")
+    @DeleteMapping("/payment-processors/{id}/logo")
+    @PreAuthorize("@auth.can('platform-processors:manage')")
+    public PaymentProcessorResponse removeLogo(@PathVariable UUID id) {
+        return service.setLogo(id, null);
+    }
+
     @Operation(summary = "Add or re-enable a payment method on a processor")
     @PutMapping("/payment-processors/{id}/methods/{method}")
     @PreAuthorize("@auth.can('platform-processors:manage')")

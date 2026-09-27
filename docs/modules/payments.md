@@ -120,6 +120,7 @@ dependency on either implementation).
 | `POST /api/v1/admin/payment-processors` | `platform-processors:manage` | Add a processor with its methods |
 | `GET /api/v1/admin/payment-processors`, `/{id}` | `platform-processors:read` | List (by priority) / fetch |
 | `PATCH /api/v1/admin/payment-processors/{id}` | `platform-processors:manage` | Rename / reprioritise |
+| `PUT` / `DELETE /api/v1/admin/payment-processors/{id}/logo` | `platform-processors:manage` | Set / remove the optional logo (base64 data URL, PNG/JPEG/WebP, max 100 KB - `ProcessorLogo`) |
 | `PUT` / `DELETE /api/v1/admin/payment-processors/{id}/methods/{method}` | `platform-processors:manage` | Add or re-enable / disable a method |
 | `POST /api/v1/admin/payment-processors/{id}/activate` \| `/deactivate` | `platform-processors:manage` + password | Platform-wide switch |
 | `POST /api/v1/admin/payment-processors/{id}/enable-for-all-businesses` \| `/disable-for-all-businesses` | `platform-processors:manage` + password | Set the default and clear every business's own setting |

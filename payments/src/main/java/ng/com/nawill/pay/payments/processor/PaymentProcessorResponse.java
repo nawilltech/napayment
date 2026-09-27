@@ -13,6 +13,8 @@ public record PaymentProcessorResponse(
         UUID id,
         String name,
         String code,
+        /** Base64 data URL, or null when the processor has no logo. */
+        String logo,
         int priority,
         EntityStatus status,
         boolean defaultEnabled,
@@ -24,7 +26,7 @@ public record PaymentProcessorResponse(
 
     public static PaymentProcessorResponse from(PaymentProcessor processor, long switchedOn, long switchedOff) {
         return new PaymentProcessorResponse(processor.getId(), processor.getName(), processor.getCode(),
-                processor.getPriority(), processor.getStatus(), processor.isDefaultEnabled(),
+                processor.getLogo(), processor.getPriority(), processor.getStatus(), processor.isDefaultEnabled(),
                 processor.getMethods().stream().map(m -> PaymentMethodResponse.of(m.getMethod(), m.isActive())).toList(),
                 switchedOn, switchedOff, processor.getCreatedAt());
     }

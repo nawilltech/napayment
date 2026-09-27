@@ -61,6 +61,9 @@ public class PaymentProcessorService {
                 request.priority() == null ? DEFAULT_PRIORITY : request.priority(),
                 request.defaultEnabled() == null || request.defaultEnabled());
         request.methods().forEach(processor::enableMethod);
+        if (request.logo() != null && !request.logo().isBlank()) {
+            processor.setLogo(request.logo());
+        }
         processor = repository.save(processor);
         log.info("payment processor created: processorId={} code={}", processor.getId(), code);
         audit(AuditEventType.PAYMENT_PROCESSOR_CREATED, processor, "methods=" + processor.activeMethods());
@@ -94,6 +97,14 @@ public class PaymentProcessorService {
         }
         audit(AuditEventType.PAYMENT_PROCESSOR_UPDATED, processor,
                 "name=" + processor.getName() + " priority=" + processor.getPriority());
+        return toResponse(processor);
+    }
+
+    /** Sets the logo, or removes it when {@code logo} is null. */
+    public PaymentProcessorResponse setLogo(UUID id, String logo) {
+        PaymentProcessor processor = require(id);
+        processor.setLogo(logo);
+        audit(AuditEventType.PAYMENT_PROCESSOR_UPDATED, processor, logo == null ? "logo removed" : "logo updated");
         return toResponse(processor);
     }
 

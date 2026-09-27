@@ -12,6 +12,7 @@ public record BusinessPaymentProcessorResponse(
         UUID processorId,
         String name,
         String code,
+        String logo,
         boolean processorActive,
         boolean defaultEnabled,
         List<PaymentMethodResponse> methods,
@@ -23,7 +24,7 @@ public record BusinessPaymentProcessorResponse(
     public static BusinessPaymentProcessorResponse from(ProcessorAvailability availability) {
         PaymentProcessor processor = availability.processor();
         return new BusinessPaymentProcessorResponse(processor.getId(), processor.getName(), processor.getCode(),
-                processor.isActive(), processor.isDefaultEnabled(),
+                processor.getLogo(), processor.isActive(), processor.isDefaultEnabled(),
                 processor.activeMethods().stream().map(m -> PaymentMethodResponse.of(m, true)).toList(),
                 availability.businessSetting(), availability.available(), availability.source());
     }
