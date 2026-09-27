@@ -2,6 +2,7 @@ package ng.com.nawill.pay.app;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -11,6 +12,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * is the one place that needs to know all of them exist.
  */
 @SpringBootApplication(scanBasePackages = "ng.com.nawill.pay")
+@ConfigurationPropertiesScan("ng.com.nawill.pay")
 @EntityScan(basePackages = "ng.com.nawill.pay")
 @EnableJpaRepositories(basePackages = "ng.com.nawill.pay")
 public class NawillPayApplication {

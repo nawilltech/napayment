@@ -1,9 +1,9 @@
 package ng.com.nawill.pay.onboarding.kyc;
 
 import java.util.UUID;
+import ng.com.nawill.pay.common.config.PaystackProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -31,13 +31,11 @@ public class PaystackIdentityVerificationGateway implements IdentityVerification
     private static final Logger log = LoggerFactory.getLogger(PaystackIdentityVerificationGateway.class);
 
     private final RestClient restClient;
-    private final String secretKey;
+    private final PaystackProperties paystack;
 
-    public PaystackIdentityVerificationGateway(RestClient.Builder builder,
-                                                @Value("${nawill.paystack.base-url}") String baseUrl,
-                                                @Value("${nawill.paystack.secret-key:}") String secretKey) {
-        this.restClient = builder.baseUrl(baseUrl).build();
-        this.secretKey = secretKey;
+    public PaystackIdentityVerificationGateway(RestClient.Builder builder, PaystackProperties paystack) {
+        this.restClient = builder.baseUrl(paystack.baseUrl()).build();
+        this.paystack = paystack;
     }
 
     @Override
@@ -46,14 +44,14 @@ public class PaystackIdentityVerificationGateway implements IdentityVerification
             log.info("no live provider for {} - approving via fallback", type);
             return fallback(type);
         }
-        if (secretKey == null || secretKey.isBlank()) {
-            log.warn("Paystack secret key not configured (PAYSTACK_TEST_PRIVATE_KEY) - approving BVN via fallback");
+        if (!paystack.configured()) {
+            log.warn("Paystack secret key not configured ({}) - approving BVN via fallback", PaystackProperties.SECRET_KEY_ENV);
             return fallback(type);
         }
         try {
             PaystackBvnResponse response = restClient.get()
                     .uri("/bank/resolve_bvn/{bvn}", number)
-                    .header("Authorization", "Bearer " + secretKey)
+                    .header("Authorization", paystack.bearerToken())
                     .retrieve()
                     .body(PaystackBvnResponse.class);
             if (response == null || !response.status() || response.data() == null) {

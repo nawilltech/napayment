@@ -2,11 +2,11 @@ package ng.com.nawill.pay.payments.bankverification;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Optional;
+import ng.com.nawill.pay.common.config.PaystackProperties;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -27,19 +27,17 @@ public class PaystackBankVerificationGateway implements BankVerificationGateway 
     private static final Logger log = LoggerFactory.getLogger(PaystackBankVerificationGateway.class);
 
     private final RestClient restClient;
-    private final String secretKey;
+    private final PaystackProperties paystack;
 
-    public PaystackBankVerificationGateway(RestClient.Builder builder,
-                                            @Value("${nawill.paystack.base-url}") String baseUrl,
-                                            @Value("${nawill.paystack.secret-key:}") String secretKey) {
-        this.restClient = builder.baseUrl(baseUrl).build();
-        this.secretKey = secretKey;
+    public PaystackBankVerificationGateway(RestClient.Builder builder, PaystackProperties paystack) {
+        this.restClient = builder.baseUrl(paystack.baseUrl()).build();
+        this.paystack = paystack;
     }
 
     @Override
     public ResolvedAccount resolveAccountName(String accountNumber, String bankCode) {
-        if (secretKey == null || secretKey.isBlank()) {
-            log.error("Paystack secret key not configured (PAYSTACK_TEST_PRIVATE_KEY) - bank verification is unavailable");
+        if (!paystack.configured()) {
+            log.error("Paystack secret key not configured ({}) - bank verification is unavailable", PaystackProperties.SECRET_KEY_ENV);
             throw new ApiException(ErrorCode.BANK_VERIFICATION_UNAVAILABLE);
         }
         try {
@@ -48,7 +46,7 @@ public class PaystackBankVerificationGateway implements BankVerificationGateway 
                             .queryParam("account_number", accountNumber)
                             .queryParam("bank_code", bankCode)
                             .build())
-                    .header("Authorization", "Bearer " + secretKey)
+                    .header("Authorization", paystack.bearerToken())
                     .retrieve()
                     .body(PaystackResolveResponse.class);
             if (response == null || !response.status() || response.data() == null) {

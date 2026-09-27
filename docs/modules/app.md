@@ -140,11 +140,11 @@ don't duplicate it here. Two things worth knowing that supplement it:
   copied unfiltered, so `application.yml`'s `${NAWILL_DB_URL}`-style
   placeholders aren't touched at build time (they must stay literal for
   Spring to resolve at runtime).
-- Paystack's `secret-key` is the one config value in base `application.yml`
-  with an empty default (`${PAYSTACK_TEST_PRIVATE_KEY:}`) rather than a
-  hard-required `${VAR}` — bank verification is an optional-at-boot
-  feature; an unset key fails clearly at call time instead of blocking
-  startup.
+- Paystack config is bound to the typed, validated `PaystackProperties`
+  (common-core, registered by `@ConfigurationPropertiesScan`) from
+  `PAYSTACK_PRIVATE_KEY` - one key per environment, the app never chooses
+  test vs live. Optional (empty default): unset, name enquiry answers
+  `BANK_VERIFICATION_UNAVAILABLE` and BVN checks use the fallback.
 
 ## Depends on / depended on by
 

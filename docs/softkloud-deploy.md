@@ -104,7 +104,9 @@ AUTH_SUPERADMIN_EMAIL=nawilltechltd@gmail.com
 AUTH_SUPERADMIN_PASSWORD=<a strong password - only used the very first boot to seed the account>
 
 NAWILL_ENCRYPTION_KEY=<base64-encoded 32 random bytes - see EncryptionService, AES-256>
-PAYSTACK_TEST_PRIVATE_KEY=<optional - if BVN/bank-verification is enabled>
+# This environment's own Paystack secret key (sk_test_... or sk_live_...) -
+# the app uses whichever key the environment supplies.
+PAYSTACK_PRIVATE_KEY=<sk_test_... - optional; unset = bank-name lookup unavailable>
 
 SERVER_PORT=8080
 ```

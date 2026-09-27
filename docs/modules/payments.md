@@ -174,9 +174,9 @@ mechanism itself.
 - **`BankVerificationGateway`** — the **first real external HTTP call in
   the codebase**. `PaystackBankVerificationGateway` calls Paystack's live
   `GET /bank/resolve` with a `Bearer` secret key
-  (`nawill.paystack.secret-key`, from `PAYSTACK_TEST_PRIVATE_KEY`).
-  Unconfigured, it throws `IllegalStateException` at call time rather than
-  silently no-op'ing. `FakeBankVerificationGateway` (`@Profile("test")`)
+  (`PaystackProperties`, from `PAYSTACK_PRIVATE_KEY` - see app.md for the
+  per-environment rule). Unconfigured, it answers
+  `BANK_VERIFICATION_UNAVAILABLE` rather than silently no-op'ing. `FakeBankVerificationGateway` (`@Profile("test")`)
   stands in during the integration suite (`AbstractIntegrationTest`
   activates `test`) so tests never depend on Paystack's sandbox being
   reachable.

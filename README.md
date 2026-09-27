@@ -192,7 +192,8 @@ which intentionally have none.
 | `AUTH_SUPERADMIN_EMAIL` | Seeded platform SUPERADMIN's login email (FR-5) |
 | `AUTH_SUPERADMIN_PASSWORD` | Seeded platform SUPERADMIN's password |
 | `SERVER_PORT` | HTTP port (optional, default `8080`) |
-| `PAYSTACK_TEST_PRIVATE_KEY` | Paystack secret key for bank-account Name Enquiry (`GET /api/v1/banks/resolve-account`, and reused when registering a bank account). Optional — unconfigured means that endpoint errors until set; unused entirely under the `test` profile, where a fake gateway stands in (see `BankVerificationGateway`). |
+| `PAYSTACK_PRIVATE_KEY` | This environment's Paystack **secret** key (`sk_test_…` or `sk_live_…`), used for bank-account Name Enquiry and BVN checks. Each environment supplies its own - the app never chooses between test and live. Optional (unset = name enquiry unavailable); unused under the `test` profile, where fakes stand in. |
+| `SPRING_PROFILES_ACTIVE` | `prod` on the production server (applies `application-prod.yml`). Leave unset locally and on dev. |
 
 Spring profile is selected via `-Dspring-boot.run.profiles=<dev|staging|prod>`
 or `SPRING_PROFILES_ACTIVE` — no ad-hoc profile names (doc 4 §B.5).
