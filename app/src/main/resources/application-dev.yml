@@ -22,8 +22,8 @@ nawill:
     jwt:
       secret: ${AUTH_JWT_SECRET:dev-only-jwt-signing-secret-change-me-32-bytes-min}
     superadmin:
-      email: ${AUTH_SUPERADMIN_EMAIL:superadmin@nawill.com.ng}
-      password: ${AUTH_SUPERADMIN_PASSWORD:ChangeMe123!}
+      email: ${AUTH_SUPERADMIN_EMAIL:superadmin@nawill.ng}
+      password: ${AUTH_SUPERADMIN_PASSWORD:SuperAdmin?1@}
   security:
     # Dev-only AES-256 key (base64) - never use this in staging/prod; there
     # it must come from a real secret, same posture as AUTH_JWT_SECRET.
