@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import ng.com.nawill.pay.common.storage.LoadedFile;
+import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
 import ng.com.nawill.pay.onboarding.business.KycStatus;
@@ -41,9 +42,10 @@ public class AdminBusinessController {
     @PreAuthorize("@auth.can('platform-businesses:read')")
     public PageResponse<AdminBusinessSummaryResponse> list(@RequestParam(required = false) String term,
                                                              @RequestParam(required = false) KycStatus kycStatus,
+                                                             @RequestParam(required = false) EntityStatus status,
                                                              @RequestParam(defaultValue = PageDefaults.PAGE) int page,
                                                              @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
-        return PageResponse.from(adminBusinessService.list(term, kycStatus, page, size));
+        return PageResponse.from(adminBusinessService.list(term, kycStatus, status, page, size));
     }
 
     @Operation(summary = "Count businesses per KYC status")
@@ -72,6 +74,20 @@ public class AdminBusinessController {
     @PreAuthorize("@auth.can('platform-kyc:review')")
     public AdminBusinessDetailResponse rejectKyc(@PathVariable UUID id, @Valid @RequestBody RejectKycRequest request) {
         return adminBusinessService.rejectKyc(id, request.reason());
+    }
+
+    @Operation(summary = "Deactivate a business: no money movement or API keys; users keep read-only access")
+    @PostMapping("/businesses/{id}/deactivate")
+    @PreAuthorize("@auth.can('platform-businesses:manage')")
+    public AdminBusinessDetailResponse deactivate(@PathVariable UUID id, @Valid @RequestBody DeactivateBusinessRequest request) {
+        return adminBusinessService.deactivate(id, request.reason());
+    }
+
+    @Operation(summary = "Reactivate a deactivated business")
+    @PostMapping("/businesses/{id}/activate")
+    @PreAuthorize("@auth.can('platform-businesses:manage')")
+    public AdminBusinessDetailResponse activate(@PathVariable UUID id) {
+        return adminBusinessService.activate(id);
     }
 
     @Operation(summary = "Download any business's KYC document for review")

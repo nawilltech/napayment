@@ -13,9 +13,14 @@ Nothing in here is business-domain-specific (no "virtual account" or "settlement
 - `entity/EntityStatus.java` — the `ACTIVE`/`INACTIVE` enum.
 - `config/JpaAuditingConfig.java` — wires `@CreatedDate`/`@LastModifiedDate`/`@CreatedBy` via Spring Data's `AuditorAware`, sourcing the current user from `CurrentUserResolver`.
 
-**Exceptions**
-- `exception/ApiException.java` — base type carrying an `HttpStatus` + `errorCode`; anything meant to become a structured API error extends this.
-- `exception/{BadRequestException, ConflictException, ForbiddenException, ResourceNotFoundException, TooManyRequestsException, UnauthorizedException, AccountLockedException}.java` — one per HTTP status, each with a default `errorCode` and a constructor overload to pass a custom one.
+**Errors**
+- `exception/ErrorCode.java` — the single catalogue of every API error: code, `HttpStatus` and user-facing message (with `%s`/`%d` placeholders). Nothing writes an error code or message inline; the frontend mirrors the names in `@napayment/api-client`.
+- `exception/ApiException.java` — the one exception for expected errors: `throw new ApiException(ErrorCode.X, args...)`.
+- `web/ErrorResponseWriter.java` — writes the same `ErrorResponse` from filters and Spring Security handlers (token rejections, API-key failures), which run before the exception handler.
+
+**Audit**
+- `audit/AuditEventType.java`, `audit/AuditOutcome.java` — the security audit log's event types (shared so every module can record events).
+- `audit/AuditRecorder.java` — record an audit event from any module; implemented by onboarding-auth-rbac's `SecurityAuditService`.
 - `exception/GlobalExceptionHandler.java` — `@RestControllerAdvice` translating `ApiException`, Spring Security's `AccessDeniedException`/`AuthenticationException`, bean-validation exceptions, and anything uncaught into a consistent `ErrorResponse` JSON body.
 - `web/ErrorResponse.java` — the response shape: `timestamp`, `status`, `errorCode`, `message`, `requestId`, `details`.
 

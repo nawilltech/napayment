@@ -36,8 +36,8 @@ public class PaymentLinkPayController {
 
     @Operation(summary = "Get a payment link's details by short code")
     @GetMapping("/{shortCode}")
-    public PaymentLinkResponse resolve(@PathVariable String shortCode) {
-        return PaymentLinkResponse.from(paymentLinkService.resolve(shortCode));
+    public PaymentLinkCheckoutResponse resolve(@PathVariable String shortCode) {
+        return paymentLinkService.checkout(shortCode);
     }
 
     @Operation(summary = "Pay through a payment link")

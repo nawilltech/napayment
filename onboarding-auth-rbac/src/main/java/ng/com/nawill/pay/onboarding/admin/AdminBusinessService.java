@@ -10,8 +10,9 @@ import java.util.stream.Collectors;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
-import ng.com.nawill.pay.onboarding.audit.AuditEventType;
-import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
+import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditService;
 import ng.com.nawill.pay.onboarding.business.Business;
 import ng.com.nawill.pay.onboarding.business.BusinessRepository;
@@ -65,11 +66,12 @@ public class AdminBusinessService {
      * reviewers work first-in first-out; every other view shows newest businesses first.
      */
     @Transactional(readOnly = true)
-    public Page<AdminBusinessSummaryResponse> list(String term, KycStatus kycStatus, int page, int size) {
+    public Page<AdminBusinessSummaryResponse> list(String term, KycStatus kycStatus, EntityStatus status, int page,
+                                                   int size) {
         Sort sort = kycStatus == KycStatus.PENDING_REVIEW
                 ? Sort.by(Sort.Direction.ASC, "kycSubmittedAt")
                 : Sort.by(Sort.Direction.DESC, "createdAt");
-        Page<Business> businesses = businessRepository.findAll(BusinessSpecifications.matching(term, kycStatus),
+        Page<Business> businesses = businessRepository.findAll(BusinessSpecifications.matching(term, kycStatus, status),
                 PageRequest.of(page, size, sort));
 
         Set<UUID> ownerIds = businesses.stream().map(Business::getOwnerId).collect(Collectors.toSet());
@@ -96,6 +98,28 @@ public class AdminBusinessService {
 
     public AdminBusinessDetailResponse rejectKyc(UUID businessId, String reason) {
         return decide(businessId, KycStatus.REJECTED, reason.trim());
+    }
+
+    /** FR-Admin-6: no-op if already inactive, but the reason is updated and audited. */
+    public AdminBusinessDetailResponse deactivate(UUID businessId, String reason) {
+        UUID staffId = currentUserResolver.requireCurrentUser().userId();
+        Business business = find(businessId);
+        business.deactivate(reason.trim(), staffId);
+        business = businessRepository.save(business);
+        log.info("business deactivated: businessId={} staffId={}", businessId, staffId);
+        securityAuditService.record(AuditEventType.BUSINESS_DEACTIVATED, AuditOutcome.SUCCESS, staffId, businessId,
+                "Reason: " + reason.trim());
+        return detail(business);
+    }
+
+    public AdminBusinessDetailResponse activate(UUID businessId) {
+        UUID staffId = currentUserResolver.requireCurrentUser().userId();
+        Business business = find(businessId);
+        business.activate(staffId);
+        business = businessRepository.save(business);
+        log.info("business activated: businessId={} staffId={}", businessId, staffId);
+        securityAuditService.record(AuditEventType.BUSINESS_ACTIVATED, AuditOutcome.SUCCESS, staffId, businessId, null);
+        return detail(business);
     }
 
     private AdminBusinessDetailResponse decide(UUID businessId, KycStatus decision, String note) {

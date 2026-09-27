@@ -29,10 +29,32 @@ create endpoint, provisioning is signup-triggered only).
 anonymous payers where the virtual account id itself is the trust
 boundary); `TransactionController`.
 
-**processor** — `PaymentProcessorGateway` (interface) /
-`SandboxPaymentProcessorGateway` (the only implementation — always
-succeeds, no real network call); `PaymentProcessor` (DB-configured
-entity), `PaymentProcessorService`/`Controller`.
+**processor** — the platform processor catalogue and routing (FR-Proc-1..4,
+FR-Admin-5):
+- `PaymentProcessor` — name, immutable `code` (maps to the integration and
+  its env-var keys; secrets are never stored), `priority` (lower routes
+  first), `defaultEnabled` ("for all businesses") and the inherited status
+  as the platform-wide switch. Owns its `PaymentProcessorMethod` children.
+- `PaymentMethod` — the fixed enum (`TRANSFER, CARD, USSD, BANK_DEBIT, QR`)
+  with display labels; `PaymentProcessorMethod` rows are retired (INACTIVE),
+  never deleted.
+- `BusinessPaymentProcessor` — a business's own ON/OFF for one processor.
+  Only exceptions are stored: no row = follow `defaultEnabled`.
+- `ProcessorRouter` — **the one place the availability rule lives**:
+  `availabilityFor(businessId)` (every processor + available + why),
+  `route(businessId, method)`, `requireUsable(...)`, `availableMethods(...)`.
+- `PaymentProcessorService` (catalogue, platform switch, for-all-businesses;
+  password-confirmed where FR-Admin-5 says so) and
+  `BusinessPaymentProcessorService` (per-business set/reset). Both audit via
+  `AuditRecorder`.
+- `PaymentProcessorGateway` / `SandboxPaymentProcessorGateway` — the
+  charge call itself; still sandboxed (always succeeds).
+
+**platform** — contracts payments needs from modules it can't depend on
+(onboarding-auth-rbac implements them, like `TransactionPinGateway`):
+`BusinessDirectory` (exists / isActive), `PasswordConfirmation`, and
+`BusinessAccess` — the single guard every money-moving path calls so a
+deactivated business can't receive or move money (FR-Admin-6).
 
 **bankaccount** — `BankAccount` (a business's registered external
 account); `BankAccountService` (creation now always resolves the
@@ -94,8 +116,17 @@ dependency on either implementation).
 | `GET /api/v1/virtual-accounts` | `virtualaccounts:read` | List caller's virtual account(s) |
 | `POST /api/v1/transactions` | `transactions:create` | Create a transaction (`@Idempotent`) |
 | `GET /api/v1/transactions/{id}` | `transactions:read` | Fetch a transaction (ownership-checked) |
-| `POST /api/v1/payment-processors` | `processors:configure` | Register a payment processor |
-| `GET /api/v1/payment-processors`, `/{id}` | `processors:read` | List/fetch |
+| `GET /api/v1/admin/payment-methods` | `platform-processors:read` | Every payment method the platform supports |
+| `POST /api/v1/admin/payment-processors` | `platform-processors:manage` | Add a processor with its methods |
+| `GET /api/v1/admin/payment-processors`, `/{id}` | `platform-processors:read` | List (by priority) / fetch |
+| `PATCH /api/v1/admin/payment-processors/{id}` | `platform-processors:manage` | Rename / reprioritise |
+| `PUT` / `DELETE /api/v1/admin/payment-processors/{id}/logo` | `platform-processors:manage` | Set / remove the optional logo (base64 data URL, PNG/JPEG/WebP, max 100 KB - `ProcessorLogo`) |
+| `PUT` / `DELETE /api/v1/admin/payment-processors/{id}/methods/{method}` | `platform-processors:manage` | Add or re-enable / disable a method |
+| `POST /api/v1/admin/payment-processors/{id}/activate` \| `/deactivate` | `platform-processors:manage` + password | Platform-wide switch |
+| `POST /api/v1/admin/payment-processors/{id}/enable-for-all-businesses` \| `/disable-for-all-businesses` | `platform-processors:manage` + password | Set the default and clear every business's own setting |
+| `GET /api/v1/admin/businesses/{businessId}/payment-processors` | `platform-processors:read` | Each processor's availability for one business, and why |
+| `PUT` / `DELETE /api/v1/admin/businesses/{businessId}/payment-processors/{processorId}` | `platform-processors:manage` | Switch ON/OFF for one business / reset to default |
+| `GET /api/v1/payment-methods` | authenticated | Methods the caller's account can accept now |
 | `POST /api/v1/bank-accounts` | `settlements:manage` | Register a bank account (name resolved via Paystack) |
 | `GET /api/v1/bank-accounts` | `settlements:read` | List caller's bank accounts |
 | `GET /api/v1/banks/resolve-account` | `settlements:manage` | Preview a resolved account name before creating one |
@@ -152,6 +183,12 @@ mechanism itself.
 
 ## How to extend it
 
+- **New payment method**: add it to `PaymentMethod` (with its label) and
+  the frontend's `PAYMENT_METHODS` mirror; nothing else is hard-coded.
+- **Anything that moves money** must call `BusinessAccess.requireActive`
+  and, if it takes a payment, go through `TransactionService` so
+  `ProcessorRouter` picks (or validates) the processor - never read
+  processors straight from the repository.
 - **New payment processor integration**: implement `PaymentProcessorGateway`,
   wire it in place of (or alongside, profile-gated like
   `BankVerificationGateway`) `SandboxPaymentProcessorGateway`.
@@ -181,6 +218,15 @@ mechanism itself.
   (doc 2 §7 ADR-12).
 
 ## Gotchas / non-obvious behavior
+
+- Processor routing and the business-active check happen once, in
+  `TransactionService.process()`; collect, payment links and one-time
+  accounts just pass the requested method. A deactivated processor keeps
+  every business's own setting so reactivating restores them, while
+  "for all businesses" deliberately deletes those settings.
+- Integration tests share one processor table: routing assertions must
+  limit the test business to its own processors
+  (`AbstractIntegrationTest.limitBusinessToProcessors`).
 
 - `bankId`, `countryId`, etc. are bare UUIDs validated against
   reference-data's repositories at write time — never a JPA relation

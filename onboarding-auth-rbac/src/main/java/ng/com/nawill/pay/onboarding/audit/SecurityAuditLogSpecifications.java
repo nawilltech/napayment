@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
 import org.springframework.data.jpa.domain.Specification;
 
 /** Filters for the platform audit-log viewer (doc 4 §C.5). Every filter is optional. */

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import ng.com.nawill.pay.app.NawillPayApplication;
 import org.junit.jupiter.api.BeforeEach;
@@ -234,10 +235,53 @@ public abstract class AbstractIntegrationTest {
      * exist - create it explicitly rather than relying on another test class
      * having run first.
      */
-    protected String createPaymentProcessor() {
-        ResponseEntity<Map> response = restTemplate.exchange(url("/api/v1/payment-processors"), HttpMethod.POST,
-                new HttpEntity<>(Map.of("name", "Processor-" + UUID.randomUUID()), authHeaders(superAdminToken())),
-                Map.class);
+    /** A platform processor with a unique name/code offering {@code methods}; returns its id. */
+    protected String createPaymentProcessor(int priority, String... methods) {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
+        Map<String, Object> body = Map.of("name", "Processor " + suffix, "code", "P_" + suffix,
+                "priority", priority, "methods", List.of(methods));
+        ResponseEntity<Map> response = adminExchange(HttpMethod.POST, "/api/v1/admin/payment-processors", body);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return (String) response.getBody().get("id");
+    }
+
+    /** An active TRANSFER processor, so collections have something to route to. */
+    protected String createPaymentProcessor() {
+        return createPaymentProcessor(100, "TRANSFER");
+    }
+
+    /** A call as the seeded SUPERADMIN (every platform-* permission). */
+    protected ResponseEntity<Map> adminExchange(HttpMethod method, String path, Object body) {
+        return restTemplate.exchange(url(path), method, new HttpEntity<>(body, authHeaders(superAdminToken())), Map.class);
+    }
+
+    /** Body for platform-wide actions that re-confirm the staff password (FR-Admin-5). */
+    protected static Map<String, Object> superAdminPasswordConfirmation() {
+        return Map.of("password", SUPERADMIN_PASSWORD);
+    }
+
+    /**
+     * Switches every processor except {@code keep} OFF for the business, so a
+     * routing assertion only sees the test's own processors - the processor
+     * table is shared by every test class in the run.
+     */
+    protected void limitBusinessToProcessors(String businessId, Set<String> keep) {
+        ResponseEntity<List> all = restTemplate.exchange(url("/api/v1/admin/businesses/" + businessId + "/payment-processors"),
+                HttpMethod.GET, new HttpEntity<>(authHeaders(superAdminToken())), List.class);
+        for (Object row : all.getBody()) {
+            String processorId = (String) ((Map<?, ?>) row).get("processorId");
+            adminExchange(HttpMethod.PUT, "/api/v1/admin/businesses/" + businessId + "/payment-processors/" + processorId,
+                    Map.of("enabled", keep.contains(processorId)));
+        }
+    }
+
+    protected String soleVirtualAccountId(String token) {
+        return (String) getPagedContent("/api/v1/virtual-accounts", authHeaders(token)).get(0).get("id");
+    }
+
+    protected HttpHeaders idempotentHeaders(String token) {
+        HttpHeaders headers = authHeaders(token);
+        headers.set("Idempotency-Key", UUID.randomUUID().toString());
+        return headers;
     }
 }

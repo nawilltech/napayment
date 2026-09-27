@@ -83,6 +83,21 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aDeactivatedBusinessCannotUseItsApiKeyEvenWithAValidSignature() {
+        String businessId = (String) restTemplate.exchange(url("/api/v1/users/me"), HttpMethod.GET,
+                new HttpEntity<>(authHeaders(businessToken)), Map.class).getBody().get("businessId");
+        adminExchange(HttpMethod.POST, "/api/v1/admin/businesses/" + businessId + "/deactivate",
+                Map.of("reason", "API abuse review"));
+        String body = "{\"amount\":5000,\"paymentMethod\":\"TRANSFER\"}";
+        String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
+
+        ResponseEntity<Map> response = signedCollect(publicKey, timestamp, hmacSha256Hex(secretKey, timestamp + "." + body), body);
+
+        assertThat(response.getStatusCode()).isEqualTo(ErrorCode.BUSINESS_INACTIVE.status());
+        assertThat(response.getBody().get("errorCode")).isEqualTo(ErrorCode.BUSINESS_INACTIVE.name());
+    }
+
+    @Test
     void missingSignatureHeadersAreRejected() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

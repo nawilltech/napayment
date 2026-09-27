@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
-import ng.com.nawill.pay.onboarding.audit.AuditEventType;
-import ng.com.nawill.pay.onboarding.audit.AuditOutcome;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditLog;
 import ng.com.nawill.pay.onboarding.audit.SecurityAuditLogRepository;
 import org.junit.jupiter.api.Test;

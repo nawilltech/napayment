@@ -23,6 +23,8 @@ public record AdminBusinessDetailResponse(
         Instant kycDetailsUpdatedAt,
         Instant kycReviewedAt,
         String kycReviewNote,
+        String statusReason,
+        Instant statusChangedAt,
         String ownerPhoneNo,
         OwnerIdentityResponse ownerIdentity,
         List<KycDocumentResponse> documents
@@ -33,7 +35,8 @@ public record AdminBusinessDetailResponse(
         return new AdminBusinessDetailResponse(AdminBusinessSummaryResponse.from(business, owner),
                 business.getBusinessType(), business.getIndustry(), business.getAddressLine(),
                 business.getCacVerifiedName(), business.getCacVerificationSource(), business.getKycDetailsUpdatedAt(),
-                business.getKycReviewedAt(), business.getKycReviewNote(), owner == null ? null : owner.getPhoneNo(),
+                business.getKycReviewedAt(), business.getKycReviewNote(), business.getStatusReason(),
+                business.getStatusChangedAt(), owner == null ? null : owner.getPhoneNo(),
                 ownerIdentity, documents);
     }
 }

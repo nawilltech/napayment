@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import ng.com.nawill.pay.common.audit.AuditEventType;
+import ng.com.nawill.pay.common.audit.AuditOutcome;
 import org.hibernate.annotations.UuidGenerator;
 
 /**

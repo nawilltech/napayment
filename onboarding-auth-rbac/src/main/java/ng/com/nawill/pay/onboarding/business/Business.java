@@ -8,6 +8,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import ng.com.nawill.pay.common.entity.BaseEntity;
+import ng.com.nawill.pay.common.entity.EntityStatus;
 
 @Entity
 @Table(name = "business")
@@ -68,6 +69,15 @@ public class Business extends BaseEntity {
 
     @Column(name = "kyc_review_note", length = 512)
     private String kycReviewNote;
+
+    @Column(name = "status_reason", length = 512)
+    private String statusReason;
+
+    @Column(name = "status_changed_at")
+    private Instant statusChangedAt;
+
+    @Column(name = "status_changed_by")
+    private UUID statusChangedBy;
 
     protected Business() {
     }
@@ -188,5 +198,32 @@ public class Business extends BaseEntity {
 
     public boolean isAwaitingKycReview() {
         return kycStatus == KycStatus.PENDING_REVIEW;
+    }
+
+    public String getStatusReason() {
+        return statusReason;
+    }
+
+    public Instant getStatusChangedAt() {
+        return statusChangedAt;
+    }
+
+    public boolean isActive() {
+        return getStatus() == EntityStatus.ACTIVE;
+    }
+
+    /** FR-Admin-6: stops all money movement for the business; its users keep read-only access. */
+    public void deactivate(String reason, UUID by) {
+        setStatus(EntityStatus.INACTIVE);
+        this.statusReason = reason;
+        this.statusChangedAt = Instant.now();
+        this.statusChangedBy = by;
+    }
+
+    public void activate(UUID by) {
+        setStatus(EntityStatus.ACTIVE);
+        this.statusReason = null;
+        this.statusChangedAt = Instant.now();
+        this.statusChangedBy = by;
     }
 }

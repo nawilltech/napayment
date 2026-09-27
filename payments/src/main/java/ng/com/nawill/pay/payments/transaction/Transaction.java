@@ -12,6 +12,7 @@ import jakarta.persistence.Version;
 import java.math.BigInteger;
 import java.util.UUID;
 import ng.com.nawill.pay.common.entity.BaseEntity;
+import ng.com.nawill.pay.payments.processor.PaymentMethod;
 import ng.com.nawill.pay.payments.processor.PaymentProcessor;
 import ng.com.nawill.pay.payments.virtualaccount.VirtualAccount;
 
@@ -48,6 +49,11 @@ public class Transaction extends BaseEntity {
     @JoinColumn(name = "payment_processor_id")
     private PaymentProcessor paymentProcessor;
 
+    /** How the payer paid (FR-Proc-4); null for peer-to-peer transfers, which use no processor. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", length = 16)
+    private PaymentMethod paymentMethod;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "transaction_status", nullable = false, length = 16)
     private TransactionStatus transactionStatus = TransactionStatus.PENDING;
@@ -77,10 +83,12 @@ public class Transaction extends BaseEntity {
     }
 
     public Transaction(BigInteger amount, String idempotencyKey, PaymentProcessor paymentProcessor,
-                        TransactionType transactionType, String sessionId, VirtualAccount virtualAccount) {
+                        PaymentMethod paymentMethod, TransactionType transactionType, String sessionId,
+                        VirtualAccount virtualAccount) {
         this.amount = amount;
         this.idempotencyKey = idempotencyKey;
         this.paymentProcessor = paymentProcessor;
+        this.paymentMethod = paymentMethod;
         this.transactionType = transactionType;
         this.sessionId = sessionId;
         this.virtualAccount = virtualAccount;
@@ -112,6 +120,10 @@ public class Transaction extends BaseEntity {
 
     public PaymentProcessor getPaymentProcessor() {
         return paymentProcessor;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
     }
 
     public TransactionStatus getTransactionStatus() {

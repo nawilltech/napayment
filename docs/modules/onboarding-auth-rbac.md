@@ -137,6 +137,19 @@ user/role.
   `ApiKeyAuthenticationFilter`, which is a deliberate, narrow allowlist, not
   a general auth mechanism.
 
+## Business suspension & password confirmation (FR-Admin-5/6)
+
+- `POST /api/v1/admin/businesses/{id}/deactivate` (reason) and `/activate`
+  (`platform-businesses:manage`) set `Business.status` with the reason and
+  who/when. `BusinessDirectoryAdapter` exposes the status to payments,
+  whose `BusinessAccess` blocks collections, settlements and transfers;
+  `ApiKeyAuthenticationFilter` refuses the business's API keys (after
+  signature checks, so only the key's owner learns why). Sign-in and reads
+  still work; `/users/me` returns `businessActive` so the console can say so.
+- `PasswordConfirmationService` implements payments' `PasswordConfirmation`
+  for platform-wide changes. It shares `LoginAttemptService`'s counter, so
+  wrong confirmations count toward the sign-in lockout.
+
 ## Gotchas / non-obvious behavior
 
 - The seeded permission catalog is intentionally minimal (7 permissions as
