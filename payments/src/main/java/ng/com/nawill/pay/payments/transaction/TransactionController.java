@@ -49,6 +49,7 @@ public class TransactionController {
                                                     @RequestParam(required = false) TransactionStatus status,
                                                     @RequestParam(required = false) TransactionType type,
                                                     @RequestParam(required = false) UUID virtualAccountId,
+                                                    @RequestParam(required = false) UUID businessId,
                                                     @RequestParam(required = false)
                                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant fromDate,
                                                     @RequestParam(required = false)
@@ -58,7 +59,7 @@ public class TransactionController {
                                                     @RequestParam(defaultValue = PageDefaults.PAGE) int page,
                                                     @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
         TransactionFilter filter = new TransactionFilter(fromDate, toDate, status, type, term, virtualAccountId,
-                minAmount, maxAmount);
+                businessId, minAmount, maxAmount);
         return PageResponse.from(
                 transactionService.list(filter, PageRequest.of(page, size)).map(TransactionResponse::from));
     }
@@ -69,6 +70,7 @@ public class TransactionController {
                                                      @RequestParam(required = false) TransactionStatus status,
                                                      @RequestParam(required = false) TransactionType type,
                                                      @RequestParam(required = false) UUID virtualAccountId,
+                                                     @RequestParam(required = false) UUID businessId,
                                                      @RequestParam(required = false)
                                                      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant fromDate,
                                                      @RequestParam(required = false)
@@ -76,7 +78,7 @@ public class TransactionController {
                                                      @RequestParam(required = false) BigInteger minAmount,
                                                      @RequestParam(required = false) BigInteger maxAmount) {
         TransactionFilter filter = new TransactionFilter(fromDate, toDate, status, type, term, virtualAccountId,
-                minAmount, maxAmount);
+                businessId, minAmount, maxAmount);
         return transactionService.analyze(filter);
     }
 

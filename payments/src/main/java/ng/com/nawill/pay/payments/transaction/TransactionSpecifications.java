@@ -33,6 +33,9 @@ public final class TransactionSpecifications {
             if (filter.virtualAccountId() != null) {
                 predicates.add(cb.equal(root.get("virtualAccount").get("id"), filter.virtualAccountId()));
             }
+            if (filter.businessId() != null) {
+                predicates.add(cb.equal(root.get("virtualAccount").get("businessId"), filter.businessId()));
+            }
             if (filter.startDate() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.startDate()));
             }

@@ -10,6 +10,9 @@ import ng.com.nawill.pay.common.exception.BadRequestException;
  * analytics endpoint, so the two never drift on what "matching transactions"
  * means. {@code term} is matched against {@link Transaction#getSessionId()} -
  * the only caller-facing free-text reference on a transaction.
+ * {@code businessId} narrows to one business's virtual accounts - used by the
+ * platform admin console; for everyone else it can only narrow within their
+ * own ownership scope (TransactionSpecifications), never widen it.
  */
 public record TransactionFilter(
         Instant startDate,
@@ -18,6 +21,7 @@ public record TransactionFilter(
         TransactionType type,
         String term,
         UUID virtualAccountId,
+        UUID businessId,
         BigInteger minAmount,
         BigInteger maxAmount
 ) {
