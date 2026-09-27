@@ -32,13 +32,7 @@ class TransactionListAndAnalyticsIT extends AbstractIntegrationTest {
 
         List<Map<String, Object>> accounts = getPagedContent("/api/v1/virtual-accounts", authHeaders(userToken));
         virtualAccountId = (String) accounts.get(0).get("id");
-
-        String adminToken = superAdminToken();
-        Map<String, Object> processorRequest = Map.of("name", "Paystack-" + UUID.randomUUID());
-        ResponseEntity<Map> processorResponse = restTemplate.exchange(
-                url("/api/v1/payment-processors"), HttpMethod.POST,
-                new HttpEntity<>(processorRequest, authHeaders(adminToken)), Map.class);
-        paymentProcessorId = (String) processorResponse.getBody().get("id");
+        paymentProcessorId = createPaymentProcessor();
     }
 
     @Test

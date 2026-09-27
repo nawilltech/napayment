@@ -18,7 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * NFR-7: rotating, server-revocable refresh tokens. Postgres is the source
@@ -46,13 +49,17 @@ public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final SecurityAuditService securityAuditService;
     private final Duration refreshTtl;
+    private final TransactionTemplate independentTransaction;
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
                                 SecurityAuditService securityAuditService,
-                                @Value("${nawill.auth.jwt.refresh-expiry-days:30}") long refreshExpiryDays) {
+                                @Value("${nawill.auth.jwt.refresh-expiry-days:30}") long refreshExpiryDays,
+                                PlatformTransactionManager transactionManager) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.securityAuditService = securityAuditService;
         this.refreshTtl = Duration.ofDays(refreshExpiryDays);
+        this.independentTransaction = new TransactionTemplate(transactionManager);
+        this.independentTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     public String issue(UUID userId) {
@@ -102,10 +109,19 @@ public class RefreshTokenService {
         });
     }
 
+    /**
+     * Commits in its own transaction: reuse detection always ends in an
+     * UnauthorizedException, which rolls back the caller's transaction (this
+     * service's and AuthService#refresh's) - revoking inside it would be
+     * undone, leaving a stolen token chain usable. Same reason
+     * SecurityAuditService writes with REQUIRES_NEW.
+     */
     private void revokeAllActive(UUID userId) {
-        List<RefreshToken> active = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(userId);
-        active.forEach(token -> token.revoke(null));
-        refreshTokenRepository.saveAll(active);
+        independentTransaction.executeWithoutResult(status -> {
+            List<RefreshToken> active = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(userId);
+            active.forEach(token -> token.revoke(null));
+            refreshTokenRepository.saveAll(active);
+        });
     }
 
     private String randomToken() {

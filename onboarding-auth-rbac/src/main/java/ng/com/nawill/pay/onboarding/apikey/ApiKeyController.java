@@ -34,8 +34,9 @@ public class ApiKeyController {
 
     @PostMapping("/regenerate")
     @PreAuthorize("@auth.can('apikeys:manage')")
-    public ApiKeyGeneratedResponse regenerate() {
-        return apiKeyService.regenerate();
+    public ResponseEntity<ApiKeyGeneratedResponse> regenerate() {
+        // A new key pair is created, same as generate().
+        return ResponseEntity.status(HttpStatus.CREATED).body(apiKeyService.regenerate());
     }
 
     @GetMapping

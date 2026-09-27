@@ -227,4 +227,17 @@ public abstract class AbstractIntegrationTest {
                 url("/api/v1/kyc/submit"), HttpMethod.POST, new HttpEntity<>(authHeaders(bearerToken)), Map.class);
         assertThat(submitted.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
+
+    /**
+     * A fresh ACTIVE payment processor, created as SUPERADMIN. Anything that
+     * records a transaction (collect, transactions, transfers) needs one to
+     * exist - create it explicitly rather than relying on another test class
+     * having run first.
+     */
+    protected String createPaymentProcessor() {
+        ResponseEntity<Map> response = restTemplate.exchange(url("/api/v1/payment-processors"), HttpMethod.POST,
+                new HttpEntity<>(Map.of("name", "Processor-" + UUID.randomUUID()), authHeaders(superAdminToken())),
+                Map.class);
+        return (String) response.getBody().get("id");
+    }
 }

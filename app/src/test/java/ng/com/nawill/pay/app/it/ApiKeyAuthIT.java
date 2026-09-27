@@ -40,6 +40,8 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
         assertThat(apiKeyResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         publicKey = (String) apiKeyResponse.getBody().get("publicKey");
         secretKey = (String) apiKeyResponse.getBody().get("secretKey");
+        // /collect records against an active processor - don't depend on another class creating one first.
+        createPaymentProcessor();
     }
 
     @Test
@@ -127,8 +129,10 @@ class ApiKeyAuthIT extends AbstractIntegrationTest {
         assertThat(blocked.getBody().get("errorCode")).isEqualTo("IP_NOT_WHITELISTED");
 
         ResponseEntity<Void> removeWhitelist = restTemplate.exchange(
-                url("/api/v1/api-keys/ip-whitelist?cidr=10.0.0.0%2F8"), HttpMethod.DELETE,
-                new HttpEntity<>(authHeaders(businessToken)), Void.class);
+                // Template variable, not a hand-encoded "%2F": RestTemplate encodes the URL string again,
+                // so "%2F" arrived as a literal "%2F" and the delete silently matched nothing.
+                url("/api/v1/api-keys/ip-whitelist?cidr={cidr}"), HttpMethod.DELETE,
+                new HttpEntity<>(authHeaders(businessToken)), Void.class, "10.0.0.0/8");
         assertThat(removeWhitelist.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
         String timestamp2 = String.valueOf(System.currentTimeMillis() / 1000);
