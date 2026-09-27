@@ -93,5 +93,7 @@ nawill:
     base-url: ${FRONTEND_BASEURL}
   paystack:
     base-url: https://api.paystack.co
-    # Optional: unset in test (a fake gateway stands in) or if verification isn't needed yet.
-    secret-key: ${PAYSTACK_TEST_PRIVATE_KEY:}
+    # One key per environment (twelve-factor): each environment's own env
+    # supplies its key; the app never chooses test vs live. Optional -
+    # unset means name enquiry is unavailable (a fake stands in under test).
+    secret-key: ${PAYSTACK_PRIVATE_KEY:}
