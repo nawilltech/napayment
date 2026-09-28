@@ -11,7 +11,7 @@ import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
 import ng.com.nawill.pay.payments.platform.BusinessAccess;
-import ng.com.nawill.pay.payments.processor.PaymentMethodResponse;
+import ng.com.nawill.pay.payments.processor.PaymentMethodOption;
 import ng.com.nawill.pay.payments.processor.ProcessorRouter;
 import ng.com.nawill.pay.payments.transaction.CreateTransactionRequest;
 import ng.com.nawill.pay.payments.transaction.Transaction;
@@ -107,10 +107,8 @@ public class PaymentLinkService {
     public PaymentLinkCheckoutResponse checkout(String shortCode) {
         PaymentLink link = resolve(shortCode);
         UUID businessId = link.getVirtualAccount().getBusinessId();
-        List<PaymentMethodResponse> methods = !businessAccess.isActive(businessId) ? List.of()
-                : processorRouter.availableMethods(businessId).stream()
-                        .map(method -> PaymentMethodResponse.of(method, true))
-                        .toList();
+        List<PaymentMethodOption> methods = !businessAccess.isActive(businessId) ? List.of()
+                : processorRouter.availableMethods(businessId).stream().map(PaymentMethodOption::of).toList();
         return new PaymentLinkCheckoutResponse(PaymentLinkResponse.from(link), methods);
     }
 

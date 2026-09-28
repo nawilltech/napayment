@@ -6,7 +6,7 @@ import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUser;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
-import ng.com.nawill.pay.payments.processor.PaymentMethod;
+import ng.com.nawill.pay.payments.paymentmethod.PaymentMethod;
 import ng.com.nawill.pay.payments.transaction.CreateTransactionRequest;
 import ng.com.nawill.pay.payments.transaction.Transaction;
 import ng.com.nawill.pay.payments.transaction.TransactionService;
@@ -86,7 +86,7 @@ public class DynamicVirtualAccountService {
 
         // A one-time account is paid into by bank transfer.
         CreateTransactionRequest createRequest = CreateTransactionRequest.routedCredit(
-                account.getVirtualAccount().getId(), PaymentMethod.TRANSFER, request.amount());
+                account.getVirtualAccount().getId(), PaymentMethod.DEFAULT_CODE, request.amount());
         Transaction transaction = transactionService.create(createRequest, idempotencyKey);
 
         if (transaction.getTransactionStatus() == TransactionStatus.PAID) {

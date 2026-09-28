@@ -191,6 +191,46 @@ class AdminPaymentProcessorIT extends AbstractIntegrationTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void archivingIsASoftDeleteThatHidesTheProcessorAndRestoreBringsItBackInactive() {
+        Map<String, Object> signup = businessSignup("Archive", "Check", "SecurePass123!");
+        String businessId = (String) signup.get("businessId");
+        String token = (String) signup.get("accessToken");
+        String id = createPaymentProcessor(1, "TRANSFER");
+        limitBusinessToProcessors(businessId, java.util.Set.of(id));
+        ResponseEntity<Map> paid = restTemplate.exchange(url("/api/v1/transactions"), HttpMethod.POST, new HttpEntity<>(
+                Map.of("virtualAccountId", soleVirtualAccountId(token), "transactionType", "CREDIT", "amount", 500),
+                idempotentHeaders(token)), Map.class);
+        assertThat(paid.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        assertError(adminExchange(HttpMethod.POST, PROCESSORS + "/" + id + "/archive", Map.of("password", "wrong")),
+                ErrorCode.PASSWORD_CONFIRMATION_FAILED);
+        ResponseEntity<Map> archived = adminExchange(HttpMethod.POST, PROCESSORS + "/" + id + "/archive",
+                superAdminPasswordConfirmation());
+        assertThat(archived.getBody().get("status")).as("archiving deactivates").isEqualTo("INACTIVE");
+        assertThat(archived.getBody().get("archivedAt")).isNotNull();
+
+        assertThat(getPagedContent(PROCESSORS + "?size=200", authHeaders(superAdminToken())))
+                .noneMatch(row -> id.equals(row.get("id")));
+        assertThat(getPagedContent(PROCESSORS + "?archived=true&size=200", authHeaders(superAdminToken())))
+                .anyMatch(row -> id.equals(row.get("id")));
+        ResponseEntity<List> businessView = restTemplate.exchange(url("/api/v1/admin/businesses/" + businessId
+                + "/payment-processors"), HttpMethod.GET, new HttpEntity<>(authHeaders(superAdminToken())), List.class);
+        assertThat((List<Map<String, Object>>) businessView.getBody()).noneMatch(row -> id.equals(row.get("processorId")));
+        assertThat(restTemplate.exchange(url("/api/v1/transactions/" + paid.getBody().get("id")), HttpMethod.GET,
+                new HttpEntity<>(authHeaders(token)), Map.class).getBody().get("paymentProcessorId"))
+                .as("history still resolves").isEqualTo(id);
+        assertError(adminExchange(HttpMethod.POST, PROCESSORS + "/" + id + "/activate", superAdminPasswordConfirmation()),
+                ErrorCode.PAYMENT_PROCESSOR_ARCHIVED);
+
+        ResponseEntity<Map> restored = adminExchange(HttpMethod.POST, PROCESSORS + "/" + id + "/restore", null);
+        assertThat(restored.getBody().get("archivedAt")).isNull();
+        assertThat(restored.getBody().get("status")).as("still inactive until reactivated").isEqualTo("INACTIVE");
+        assertThat(adminExchange(HttpMethod.POST, PROCESSORS + "/" + id + "/activate", superAdminPasswordConfirmation())
+                .getBody().get("status")).isEqualTo("ACTIVE");
+    }
+
+    @Test
     void businessAccountsCannotReachProcessorSetupAndUnknownBusinessesAre404() {
         String token = businessSignupAndGetToken("Nosy", "Merchant", "SecurePass123!");
         ResponseEntity<Map> list = restTemplate.exchange(url(PROCESSORS), HttpMethod.GET,

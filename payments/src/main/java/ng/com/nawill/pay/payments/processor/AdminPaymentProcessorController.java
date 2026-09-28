@@ -4,8 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 import ng.com.nawill.pay.common.web.PageDefaults;
 import ng.com.nawill.pay.common.web.PageResponse;
@@ -36,13 +34,6 @@ public class AdminPaymentProcessorController {
         this.service = service;
     }
 
-    @Operation(summary = "List every payment method the platform supports")
-    @GetMapping("/payment-methods")
-    @PreAuthorize("@auth.can('platform-processors:read')")
-    public List<PaymentMethodResponse> paymentMethods() {
-        return Arrays.stream(PaymentMethod.values()).map(m -> PaymentMethodResponse.of(m, true)).toList();
-    }
-
     @Operation(summary = "Add a payment processor with its payment methods")
     @PostMapping("/payment-processors")
     @PreAuthorize("@auth.can('platform-processors:manage')")
@@ -51,14 +42,15 @@ public class AdminPaymentProcessorController {
         return ResponseEntity.created(URI.create("/api/v1/admin/payment-processors/" + created.id())).body(created);
     }
 
-    @Operation(summary = "List payment processors, by priority")
+    @Operation(summary = "List payment processors by priority - archived ones only with archived=true")
     @GetMapping("/payment-processors")
     @PreAuthorize("@auth.can('platform-processors:read')")
     public PageResponse<PaymentProcessorResponse> list(@RequestParam(required = false) String term,
+                                                       @RequestParam(defaultValue = "false") boolean archived,
                                                        @RequestParam(defaultValue = PageDefaults.PAGE) int page,
                                                        @RequestParam(defaultValue = PageDefaults.SIZE) int size) {
         Sort byPriority = Sort.by("priority").and(Sort.by("name"));
-        return PageResponse.from(service.list(term, PageRequest.of(page, size, byPriority)));
+        return PageResponse.from(service.list(term, archived, PageRequest.of(page, size, byPriority)));
     }
 
     @Operation(summary = "Get a payment processor")
@@ -73,6 +65,20 @@ public class AdminPaymentProcessorController {
     @PreAuthorize("@auth.can('platform-processors:manage')")
     public PaymentProcessorResponse update(@PathVariable UUID id, @Valid @RequestBody UpdatePaymentProcessorRequest request) {
         return service.update(id, request);
+    }
+
+    @Operation(summary = "Archive a processor: deactivate and hide it, keeping history (requires password)")
+    @PostMapping("/payment-processors/{id}/archive")
+    @PreAuthorize("@auth.can('platform-processors:manage')")
+    public PaymentProcessorResponse archive(@PathVariable UUID id, @Valid @RequestBody PasswordConfirmationRequest request) {
+        return service.archive(id, request.password());
+    }
+
+    @Operation(summary = "Restore an archived processor (it stays inactive until reactivated)")
+    @PostMapping("/payment-processors/{id}/restore")
+    @PreAuthorize("@auth.can('platform-processors:manage')")
+    public PaymentProcessorResponse restore(@PathVariable UUID id) {
+        return service.restore(id);
     }
 
     @Operation(summary = "Set a processor's logo (base64 data URL: PNG, JPEG or WebP, max 100 KB)")
@@ -92,14 +98,14 @@ public class AdminPaymentProcessorController {
     @Operation(summary = "Add or re-enable a payment method on a processor")
     @PutMapping("/payment-processors/{id}/methods/{method}")
     @PreAuthorize("@auth.can('platform-processors:manage')")
-    public PaymentProcessorResponse enableMethod(@PathVariable UUID id, @PathVariable PaymentMethod method) {
+    public PaymentProcessorResponse enableMethod(@PathVariable UUID id, @PathVariable String method) {
         return service.enableMethod(id, method);
     }
 
     @Operation(summary = "Disable a payment method on a processor (history kept)")
     @DeleteMapping("/payment-processors/{id}/methods/{method}")
     @PreAuthorize("@auth.can('platform-processors:manage')")
-    public PaymentProcessorResponse disableMethod(@PathVariable UUID id, @PathVariable PaymentMethod method) {
+    public PaymentProcessorResponse disableMethod(@PathVariable UUID id, @PathVariable String method) {
         return service.disableMethod(id, method);
     }
 

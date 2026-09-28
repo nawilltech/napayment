@@ -24,9 +24,9 @@ public class PaymentMethodController {
 
     @Operation(summary = "List the payment methods the caller's account can accept")
     @GetMapping
-    public List<PaymentMethodResponse> available() {
+    public List<PaymentMethodOption> available() {
         return processorRouter.availableMethods(currentUserResolver.requireCurrentUser().businessId()).stream()
-                .map(method -> PaymentMethodResponse.of(method, true))
+                .map(PaymentMethodOption::of)
                 .toList();
     }
 }

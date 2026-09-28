@@ -1,5 +1,6 @@
 package ng.com.nawill.pay.payments.processor;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import ng.com.nawill.pay.common.audit.AuditEventType;
@@ -9,6 +10,7 @@ import ng.com.nawill.pay.common.entity.EntityStatus;
 import ng.com.nawill.pay.common.exception.ApiException;
 import ng.com.nawill.pay.common.exception.ErrorCode;
 import ng.com.nawill.pay.common.security.CurrentUserResolver;
+import ng.com.nawill.pay.payments.paymentmethod.PaymentMethodService;
 import ng.com.nawill.pay.payments.platform.PasswordConfirmation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,17 +37,20 @@ public class PaymentProcessorService {
     private final PasswordConfirmation passwordConfirmation;
     private final CurrentUserResolver currentUserResolver;
     private final AuditRecorder auditRecorder;
+    private final PaymentMethodService methodService;
 
     public PaymentProcessorService(PaymentProcessorRepository repository,
                                    BusinessPaymentProcessorRepository settingRepository,
                                    PasswordConfirmation passwordConfirmation,
                                    CurrentUserResolver currentUserResolver,
-                                   AuditRecorder auditRecorder) {
+                                   AuditRecorder auditRecorder,
+                                   PaymentMethodService methodService) {
         this.repository = repository;
         this.settingRepository = settingRepository;
         this.passwordConfirmation = passwordConfirmation;
         this.currentUserResolver = currentUserResolver;
         this.auditRecorder = auditRecorder;
+        this.methodService = methodService;
     }
 
     public PaymentProcessorResponse create(CreatePaymentProcessorRequest request) {
@@ -60,7 +65,7 @@ public class PaymentProcessorService {
         PaymentProcessor processor = new PaymentProcessor(name, code,
                 request.priority() == null ? DEFAULT_PRIORITY : request.priority(),
                 request.defaultEnabled() == null || request.defaultEnabled());
-        request.methods().forEach(processor::enableMethod);
+        methodService.requireCodes(request.methods()).forEach(processor::enableMethod);
         if (request.logo() != null && !request.logo().isBlank()) {
             processor.setLogo(request.logo());
         }
@@ -70,11 +75,15 @@ public class PaymentProcessorService {
         return toResponse(processor);
     }
 
+    /** Hides archived processors unless {@code archived} asks for exactly those. */
     @Transactional(readOnly = true)
-    public Page<PaymentProcessorResponse> list(String term, Pageable pageable) {
-        Page<PaymentProcessor> page = (term == null || term.isBlank())
-                ? repository.findAll(pageable)
-                : repository.findByNameContainingIgnoreCase(term.trim(), pageable);
+    public Page<PaymentProcessorResponse> list(String term, boolean archived, Pageable pageable) {
+        boolean search = term != null && !term.isBlank();
+        Page<PaymentProcessor> page = archived
+                ? (search ? repository.findByArchivedAtIsNotNullAndNameContainingIgnoreCase(term.trim(), pageable)
+                        : repository.findByArchivedAtIsNotNull(pageable))
+                : (search ? repository.findByArchivedAtIsNullAndNameContainingIgnoreCase(term.trim(), pageable)
+                        : repository.findByArchivedAtIsNull(pageable));
         return page.map(this::toResponse);
     }
 
@@ -108,18 +117,20 @@ public class PaymentProcessorService {
         return toResponse(processor);
     }
 
-    public PaymentProcessorResponse enableMethod(UUID id, PaymentMethod method) {
+    public PaymentProcessorResponse enableMethod(UUID id, String methodCode) {
         PaymentProcessor processor = require(id);
+        String method = methodService.requireCodes(List.of(methodCode)).get(0);
         processor.enableMethod(method);
         repository.save(processor);
         audit(AuditEventType.PAYMENT_METHOD_ENABLED, processor, "method=" + method);
         return toResponse(processor);
     }
 
-    public PaymentProcessorResponse disableMethod(UUID id, PaymentMethod method) {
+    public PaymentProcessorResponse disableMethod(UUID id, String methodCode) {
         PaymentProcessor processor = require(id);
+        String method = methodService.requireCodes(List.of(methodCode)).get(0);
         if (!processor.disableMethod(method)) {
-            throw new ApiException(ErrorCode.PAYMENT_METHOD_NOT_OFFERED, method.label());
+            throw new ApiException(ErrorCode.PAYMENT_METHOD_NOT_OFFERED, methodService.byCode().get(method).getName());
         }
         audit(AuditEventType.PAYMENT_METHOD_DISABLED, processor, "method=" + method);
         return toResponse(processor);
@@ -128,6 +139,9 @@ public class PaymentProcessorService {
     /** Platform switch: INACTIVE stops every business using it; business settings are kept. */
     public PaymentProcessorResponse setActive(UUID id, boolean active, String password) {
         PaymentProcessor processor = require(id);
+        if (active && processor.isArchived()) {
+            throw new ApiException(ErrorCode.PAYMENT_PROCESSOR_ARCHIVED);
+        }
         confirmPassword(password);
         processor.setStatus(active ? EntityStatus.ACTIVE : EntityStatus.INACTIVE);
         audit(active ? AuditEventType.PAYMENT_PROCESSOR_ACTIVATED : AuditEventType.PAYMENT_PROCESSOR_DEACTIVATED,
@@ -148,6 +162,26 @@ public class PaymentProcessorService {
         return new ForAllBusinessesResponse(toResponse(processor), cleared);
     }
 
+    /**
+     * Soft delete (never a hard delete): deactivates and hides it; history
+     * still resolves and it can be restored. Its business settings are kept.
+     */
+    public PaymentProcessorResponse archive(UUID id, String password) {
+        PaymentProcessor processor = require(id);
+        confirmPassword(password);
+        processor.archive();
+        audit(AuditEventType.PAYMENT_PROCESSOR_ARCHIVED, processor, null);
+        return toResponse(processor);
+    }
+
+    /** Back in the lists, still inactive until someone reactivates it. */
+    public PaymentProcessorResponse restore(UUID id) {
+        PaymentProcessor processor = require(id);
+        processor.restore();
+        audit(AuditEventType.PAYMENT_PROCESSOR_RESTORED, processor, null);
+        return toResponse(processor);
+    }
+
     PaymentProcessor require(UUID id) {
         return repository.findById(id).orElseThrow(() -> new ApiException(ErrorCode.PAYMENT_PROCESSOR_NOT_FOUND));
     }
@@ -159,7 +193,8 @@ public class PaymentProcessorService {
     private PaymentProcessorResponse toResponse(PaymentProcessor processor) {
         return PaymentProcessorResponse.from(processor,
                 settingRepository.countByProcessorIdAndEnabled(processor.getId(), true),
-                settingRepository.countByProcessorIdAndEnabled(processor.getId(), false));
+                settingRepository.countByProcessorIdAndEnabled(processor.getId(), false),
+                methodService.byCode());
     }
 
     private void audit(AuditEventType eventType, PaymentProcessor processor, String detail) {
